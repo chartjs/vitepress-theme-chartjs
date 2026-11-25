@@ -26,8 +26,10 @@
     "build": "vite build && vue-tsc -p tsconfig.build.json",
     "lint": "eslint . && prettier --check .",
     "typecheck": "vue-tsc -p tsconfig.json",
-    "test": "pnpm build && vitest run && pnpm test:types",
-    "test:types": "tsc -p test/types/tsconfig.json && tsc -p test/types/tsconfig.nodenext.json"
+    "test": "pnpm build && vitest run --project node && pnpm test:types",
+    "test:types": "tsc -p test/types/tsconfig.json && tsc -p test/types/tsconfig.nodenext.json",
+    "test:site": "pnpm build && pnpm test:site:install && vitest run --project site",
+    "test:site:install": "pnpm --dir test/site install --frozen-lockfile || (echo The site lockfile does not match the package. Run pnpm --dir test/site install and commit test/site/pnpm-lock.yaml. && exit 1)"
   },
   "peerDependencies": {
     "chart.js": "^4.0.0",

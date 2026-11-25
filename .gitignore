@@ -1,5 +1,5 @@
 dist
 node_modules
-.vitepress/cache
-.vitepress/dist
-.vitepress/.temp
+**/.vitepress/cache
+**/.vitepress/dist
+**/.vitepress/.temp

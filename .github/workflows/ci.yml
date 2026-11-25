@@ -37,6 +37,9 @@ jobs:
       # Builds dist/, then runs the tests and the type fixtures on it.
       - name: Test
         run: pnpm run test
+      # Builds the package again, installs it into test/site with that site's lockfile, and builds the site.
+      - name: Test example site
+        run: pnpm run test:site
       - name: Publint
         run: pnpm exec publint
       # actionlint's action downloads a Linux binary.
