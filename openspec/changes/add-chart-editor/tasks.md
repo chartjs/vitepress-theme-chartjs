@@ -77,6 +77,8 @@
   - assert that the dynamically imported chunk is the only file importing `chart.js` or `vitepress`, and the only one containing acorn and Prism.
 
   Add `test/types/component.ts`, importing `ChartEditor` and `chartEditorPlugin` from `vitepress-theme-chartjs` and calling `app.use(chartEditorPlugin, { imports })`.
+
+  The first SFC declaration fails P1's NodeNext test in `test/dist.test.ts`. vue-tsc writes `ChartEditor.vue.d.ts` and keeps `from './ChartEditor.vue'`, but NodeNext resolves `./ChartEditor.vue` only to `ChartEditor.d.vue.ts`. Make the build emit that name (a rename after vue-tsc satisfies both `bundler` and `nodenext`), so the `nodenext` fixture sees the component's real type.
 - [ ] 4.3 Write `test/site.test.ts` (build only):
   - run `vitepress build test/site` with `DEBUG=1`, so that `.vitepress/.temp` is kept;
   - assert that `.vitepress/.temp/app.js`, or a server chunk, imports `vitepress-theme-chartjs`;

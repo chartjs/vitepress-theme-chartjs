@@ -85,4 +85,23 @@ describe('dist', () => {
       expect(existsSync(new URL(target.types, root)), target.types).toBe(true)
     }
   })
+
+  // NodeNext resolution needs the extension, and an unresolved import in a .d.ts turns its names into `any` without
+  // an error (consumers use skipLibCheck), so the type fixtures only notice it for names they use. `./X.js` resolves
+  // to `X.d.ts`. An SFC's `./X.vue` resolves only to `X.d.vue.ts`, not to the `X.vue.d.ts` that vue-tsc writes.
+  it('declares relative imports in a form NodeNext resolves', () => {
+    const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.\.?\/[^"']*)["']/g
+    for (const name of distFiles('.d.ts')) {
+      for (const [, path] of read(name).matchAll(specifier)) {
+        const target = new URL(path, new URL(name, dist))
+        const resolved = path.endsWith('.js')
+          ? new URL(target.href.replace(/\.js$/, '.d.ts'))
+          : new URL(target.href.replace(/\.vue$/, '.d.vue.ts'))
+        expect(path.endsWith('.js') || path.endsWith('.vue'), `${name}: '${path}' has no .js or .vue extension`).toBe(
+          true
+        )
+        expect(existsSync(resolved), `${name}: '${path}' needs ${fileURLToPath(resolved)}`).toBe(true)
+      }
+    }
+  })
 })
