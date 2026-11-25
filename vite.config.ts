@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [vue()],
   build: {
     lib: {
-      entry: { index: 'src/index.ts' },
+      entry: { index: 'src/index.ts', markdown: 'src/markdown.ts' },
       formats: ['es'],
       cssFileName: 'style',
     },

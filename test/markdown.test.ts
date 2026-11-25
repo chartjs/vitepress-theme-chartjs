@@ -24,6 +24,8 @@ function renderMarkdown(md: MarkdownRenderer, src: string): string {
 }
 
 // What VitePress's markdownToVue does with the page's HTML, then what @vitejs/plugin-vue does with the SFC.
+// The template is compiled for the client only: the server build's compiler-ssr parses it with the same compiler-core
+// parser, which is where entities in directive expressions are decoded, so the code arrives the same on both paths.
 async function renderPage(html: string): Promise<string[]> {
   const { descriptor, errors } = parse(`<template><div>${html}</div></template>`, { filename: 'page.md' })
   expect(errors).toEqual([])
