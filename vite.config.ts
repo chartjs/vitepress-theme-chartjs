@@ -13,6 +13,8 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: ['vue', 'vitepress', 'chart.js'],
+      // Stable names: the lazily loaded runtime chunk is dist/runtime.js, not runtime-<hash>.js.
+      output: { chunkFileNames: '[name].js' },
     },
   },
 })

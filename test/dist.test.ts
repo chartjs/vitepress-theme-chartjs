@@ -42,9 +42,12 @@ describe('dist', () => {
     expect(distFiles('.js')).toEqual(expect.arrayContaining(entries))
   })
 
-  // A fresh Node process, so that nothing Vitest has loaded can stand in for the globals.
+  // A fresh Node process, so that nothing Vitest has loaded can stand in for the globals. The peers load first, as a
+  // server build would already have loaded them: Vue's runtime-dom feature-tests `typeof window` when it loads, and
+  // the getters are there to catch this package's code, not Vue's.
   it.each(entries)('%s imports in Node without touching browser globals', (entry) => {
     const script = `
+      await import('vue')
       for (const name of ${JSON.stringify(browserGlobals)}) {
         Object.defineProperty(globalThis, name, {
           configurable: true,
@@ -96,12 +99,22 @@ describe('dist', () => {
 
   // NodeNext resolution needs the extension, and an unresolved import in a .d.ts turns its names into `any` without
   // an error (consumers use skipLibCheck), so the type fixtures only notice it for names they use. `./X.js` resolves
-  // to `X.d.ts`. An SFC's `./X.vue` resolves only to `X.d.vue.ts`, not to the `X.vue.d.ts` that vue-tsc writes.
+  // to `X.d.ts`. An SFC's `./X.vue` resolves only to `X.d.vue.ts`, not to the `X.vue.d.ts` that vue-tsc writes, which
+  // is why the entries export no SFC. The walk starts at the declarations the exports name and follows what they
+  // import: the runtime's declarations (`./LiveEditor.vue` among them) are emitted too, but no public type reaches them.
   it('declares relative imports in a form NodeNext resolves', () => {
+    const { exports } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
     const specifier = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.\.?\/[^"']*)["']/g
-    for (const name of distFiles('.d.ts')) {
-      for (const [, path] of read(name).matchAll(specifier)) {
-        const target = new URL(path, new URL(name, dist))
+    const pending = Object.values<string | Record<string, string>>(exports)
+      .filter((target) => typeof target !== 'string')
+      .map((target) => new URL(target.types, root))
+    const seen = new Set<string>()
+    for (let file = pending.pop(); file; file = pending.pop()) {
+      if (seen.has(file.href)) continue
+      seen.add(file.href)
+      const name = file.href.slice(dist.href.length)
+      for (const [, path] of readFileSync(file, 'utf8').matchAll(specifier)) {
+        const target = new URL(path, file)
         const resolved = path.endsWith('.js')
           ? new URL(target.href.replace(/\.js$/, '.d.ts'))
           : new URL(target.href.replace(/\.vue$/, '.d.vue.ts'))
@@ -109,7 +122,37 @@ describe('dist', () => {
           true
         )
         expect(existsSync(resolved), `${name}: '${path}' needs ${fileURLToPath(resolved)}`).toBe(true)
+        pending.push(resolved)
       }
+    }
+    expect([...seen].length).toBeGreaterThan(1)
+  })
+
+  // The static import graph of the main entry is what a server build loads. Rolldown may split shared code (such as
+  // Vue's SFC export helper) into chunks that index.js imports statically, so the walk follows them.
+  it('index.js and its static imports import only vue', () => {
+    const staticImport = /\b(?:import|export)\s*(?:[\w$*{}\s,]+\s*from\s*)?["']([^"']+)["']/g
+    const bare = new Set<string>()
+    const pending = ['index.js']
+    const seen = new Set<string>()
+    for (let name = pending.pop(); name; name = pending.pop()) {
+      if (seen.has(name)) continue
+      seen.add(name)
+      for (const [, path] of read(name).matchAll(staticImport)) {
+        if (path.startsWith('.')) pending.push(new URL(path, new URL(name, dist)).href.slice(dist.href.length))
+        else bare.add(path)
+      }
+    }
+    expect([...bare]).toEqual(['vue'])
+    expect([...seen]).not.toContain('runtime.js')
+  })
+
+  it('loads the runtime chunk lazily, and only it imports chart.js, vitepress, acorn or Prism', () => {
+    expect(read('index.js')).toMatch(/\bimport\(\s*["']\.\/runtime\.js["']\s*\)/)
+    expect(read('runtime.js')).toMatch(/\bfrom\s*["']chart\.js["']/)
+    const browserOnly = /["'](?:chart\.js|vitepress)["']|\bacorn\b|\bPrism\b/
+    for (const name of distFiles('.js').filter((name) => name !== 'runtime.js')) {
+      expect(read(name), name).not.toMatch(browserOnly)
     }
   })
 })
