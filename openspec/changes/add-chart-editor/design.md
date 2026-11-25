@@ -62,7 +62,7 @@ Its P8 is checked on a bar sample, a time-scale sample, the HTML legend sample a
 **D2. The contract's names and zoom's shape are kept, with these fixes:**
 - `&` is escaped before `'` in the fence attribute.
 - Errors from creating or updating the chart are caught and shown, and the previous chart stays.
-- Actions are read strictly on the first evaluation.
+- Actions are read strictly on the first evaluation that succeeds.
 - The Output tab is added or removed without re-parsing the code.
 - Names in `imports` that are not identifiers are rejected with a message naming them.
 - The error tooltip also opens on keyboard focus.
@@ -254,7 +254,7 @@ The example site grows in two steps:
 | The tag guard moved into `scripts/require-release-tag.mjs`, uses `--merged origin/main`, and is unit-tested; the CI dry-run step was dropped. | The dry run could not exercise an inline workflow guard, and a stray tag could have unlocked 1.0.0. |
 | A `dist` test pins the server import graph to `{vue}`. | D3 rests on it. |
 | The example site asserts the source link's `href` in build and dev. | Only the real VitePress exercises `useData`. |
-| A build-only example site moved into P4, the first piece with the component. | Rolldown library output and the external server build are the largest build risk. |
+| A build-only example site moved into P4, the first piece with the component. When P4 was later split, the site became P4b. | Rolldown library output and the external server build are the largest build risk. |
 | The code-editor piece was split in two, and the pieces renumbered. | At about 550 lines it was over the limit. |
 | The Prism flags got their own module, and their test runs on the built chunk. | Hoisted imports decide when the flags are set. |
 | Scenarios pin the agreed names, the installer without options, the progress-bar sample, all three ways of hiding a panel, rejected import names, scoped CSS and console accumulation. | The scope review asked for these. |
@@ -324,9 +324,10 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
   - `sourceLink(source, filePath)` returns a string, or `undefined` when `source`, its `repo` or its `branch` is missing. Empty segments of `dir` and `filePath` are skipped, and each segment is encoded with `encodeURIComponent`; the branch is not.
 - **P4a to P5 and later:**
   - the shell `src/ChartEditor.ts` is not an SFC, and the entries export none (D4);
+  - when the runtime chunk or the site's imports fail to load, the shell renders `div.chart-editor.chart-editor-failed` with `role="alert"` and the message in `p.chart-editor-failure`, in place of the placeholder, for P7 and P8 to style; the installer forgets a rejected `imports()`, so the next editor to mount tries again;
   - `LiveEditor` takes `code` and the loaded `imports` (`{}` without an `imports` option), and holds the evaluation state:
     - an evaluation that throws, or a config Chart.js rejects, keeps the previous chart instance and sets the error (tested in 5.1);
-    - actions are read from the first evaluation only, and stay after an edit that exports different ones (tested in 8.1);
+    - actions are read from the first evaluation that succeeds, and stay after an edit that exports different ones (tested in Node in P4a, in the browser in 8.1). Zoom read them while still unset, which a failing first evaluation would leave for the next one;
     - log lines accumulate across evaluations, including those a failed run logged before it threw, newest first, last 50 (tested in 8.1);
   - `ChartView` exposes `chart()`;
   - the runtime chunk is the only module that imports `chart.js`, `vitepress`, acorn or Prism, and the import-graph test enforces it;

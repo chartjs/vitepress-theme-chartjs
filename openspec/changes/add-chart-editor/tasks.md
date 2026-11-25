@@ -80,9 +80,9 @@
   Load `vue` before the throwing getters in the browser-globals import test: Vue's runtime-dom tests `typeof window` when it loads. Walk the NodeNext declaration test from the declarations the exports name: the runtime's `*.vue.d.ts` are emitted too, but no public type reaches them.
 
   Add `test/types/component.ts`, importing `ChartEditor` and `chartEditorPlugin` from `vitepress-theme-chartjs`, calling `app.use(chartEditorPlugin, { imports })`, and rejecting a wrong option and a wrong `code`.
-- [x] 4.4 Write `src/plugin.ts`: `chartEditorPlugin.install(app, options = {})` registers `ChartEditor` globally and provides a memoised `loadImports()`, which resolves `{}` when there is no `imports`.
-- [x] 4.5 Write `src/ChartEditor.ts`, the shell, with `defineComponent` and `h()` rather than as an SFC (D4: an exported SFC's declaration does not resolve under NodeNext): render the placeholder until mounted, then `Promise.all([import('./runtime/index.js'), loadImports()])`; ignore a load that finishes after unmount. Export the shell and the installer from `src/index.ts`. Fix the lazy chunk's file name with `chunkFileNames: '[name].js'` in `vite.config.ts`, so tests and the site can find it. The placeholder has no height of its own until P7's stylesheet gives `.chart-editor-placeholder .chart-view` one.
-- [x] 4.6 Write `src/runtime/index.ts`, `LiveEditor.vue` (zoom's `ChartEditor.vue` evaluation with the scope from the loaded imports, actions read on the first evaluation only) and `ChartView.vue` (zoom's create-on-mount and destroy). Run all tests.
+- [x] 4.4 Write `src/plugin.ts`: `chartEditorPlugin.install(app, options = {})` registers `ChartEditor` globally and provides a memoised `loadImports()`, which resolves `{}` when there is no `imports` and forgets a rejection, so the next editor to mount tries again.
+- [x] 4.5 Write `src/ChartEditor.ts`, the shell, with `defineComponent` and `h()` rather than as an SFC (D4: an exported SFC's declaration does not resolve under NodeNext): render the placeholder until mounted, then `Promise.all([import('./runtime/index.js'), loadImports()])`; ignore a load that finishes after unmount; when either load fails, render `div.chart-editor.chart-editor-failed[role=alert]` with the message in place of the placeholder. `test/shell.test.ts` mounts the built shell in Node on Vue's `createRenderer` with an in-memory tree, and checks the failure and the retry. Export the shell and the installer from `src/index.ts`. Fix the lazy chunk's file name with `chunkFileNames: '[name].js'` in `vite.config.ts`, so tests and the site can find it. The placeholder has no height of its own until P7's stylesheet gives `.chart-editor-placeholder .chart-view` one.
+- [x] 4.6 Write `src/runtime/index.ts`, `LiveEditor.vue` (zoom's `ChartEditor.vue` evaluation with the scope from the loaded imports, actions read on the first evaluation that succeeds, which `test/shell.test.ts` checks) and `ChartView.vue` (zoom's create-on-mount and destroy). Run all tests.
 
 ## 4b. P4b: A build-only example site
 
@@ -113,10 +113,20 @@
   - `app.use(chartEditorPlugin)` with no options runs a sample using `Chart` and `console`;
   - an unknown chart type in a later evaluation keeps the previous chart and exposes the message;
   - a later evaluation that throws keeps the same chart instance (`Chart.getChart(canvas)` unchanged) and sets the error;
-  - a rejected `imports` exposes its error;
+  - a rejected `imports` shows its message in the shell's `div.chart-editor.chart-editor-failed[role=alert]` in place of the placeholder, in the page (P4a tests this in Node, on an in-memory renderer);
   - no iframe and no shadow root.
 
-  It fails where P4 does not yet behave this way.
+  These must also fail on the changes that P4a's Node tests cannot see, since nothing there draws a chart:
+  - `LiveEditor`'s catch clearing `config`;
+  - actions read again on later evaluations;
+  - the messages out of order (newest first) or past the cap of 50;
+  - `destroy()` removed from `ChartView`;
+  - `new Chart` never called;
+  - the shell's unmounted guard removed;
+  - the `{}` fallbacks (`inject`'s default and the installer's without `imports`) removed;
+  - the installer's `loaded ??=` turned into `loaded =`, checked with two editors where `imports` is called once.
+
+  It fails where P4a does not yet behave this way.
 
   Add the Playwright step to `ci.yml`, after the install: `pnpm exec playwright install --with-deps chromium firefox`.
 - [ ] 5.2 Extend `ChartView.vue` with zoom's update path, and catch errors from `new Chart` and `update()`, emitting them. Make `LiveEditor.vue` keep the previous config on error and expose the error state.
