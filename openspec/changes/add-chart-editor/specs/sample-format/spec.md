@@ -42,7 +42,7 @@ The editor SHALL draw the chart from the object the sample exports as `config`. 
 
 ### Requirement: Actions
 
-The editor SHALL show one button per action that a sample exports as `actions` (`{name, handler}`). It SHALL read the actions only from the first evaluation.
+The editor SHALL show one button per action that a sample exports as `actions` (`{name, handler}`). It SHALL read the actions only from the first evaluation that succeeds.
 
 #### Scenario: Pressing an action
 - **WHEN** a sample exports two actions and the reader presses the second button
@@ -50,7 +50,11 @@ The editor SHALL show one button per action that a sample exports as `actions` (
 
 #### Scenario: Editing the actions
 - **WHEN** the reader edits the code so that it exports different actions
-- **THEN** the buttons stay as they were after the first evaluation
+- **THEN** the buttons stay as they were after the first evaluation that succeeded
+
+#### Scenario: A first run that throws
+- **WHEN** the sample throws on its first run, and the reader then edits it so that it runs and exports actions
+- **THEN** the editor shows those actions' buttons, and they stay after later edits
 
 ### Requirement: Console output
 

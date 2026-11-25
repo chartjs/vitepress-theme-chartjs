@@ -122,9 +122,9 @@
   - the messages out of order (newest first) or past the cap of 50;
   - `destroy()` removed from `ChartView`;
   - `new Chart` never called;
-  - the shell's unmounted guard removed;
-  - the `{}` fallbacks (`inject`'s default and the installer's without `imports`) removed;
-  - the installer's `loaded ??=` turned into `loaded =`, checked with two editors where `imports` is called once.
+  - the `{}` fallbacks (`inject`'s default and the installer's without `imports`) removed.
+
+  P4a's `test/shell.test.ts` already covers the memo (`??=` turned into `=`), a rejection that is not an `Error`, and a load that settles after unmount rendering and reporting nothing.
 
   It fails where P4a does not yet behave this way.
 
@@ -157,7 +157,7 @@
 - [ ] 8.1 Write `test/browser/features.test.ts`:
   - a failing edit keeps the chart, and the indicator's message is visible on hover and on keyboard focus, then clears after a good edit;
   - output: the last 50 lines newest first, lines accumulating across edits, including the lines an edit logged before it threw, the string placeholder, no tab without `output`, and changing `output` keeps the reader's edits;
-  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit that exports different actions;
+  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit that exports different actions, and buttons from the first successful edit when the first run throws;
   - the source link comes from the stubbed `source` and `filePath`, opens in a new tab, and is absent without `source`.
 
   It fails.
