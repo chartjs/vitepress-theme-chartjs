@@ -147,7 +147,7 @@ Also `"type": "module"`, `"sideEffects": ["*.css"]` and `"files": ["dist"]`. `di
 The built-file tests check:
 - both entries import with `window` and `document` as throwing getters;
 - server rendering of an app with the installer;
-- the static import graph of `dist/index.js` and of the chunks it imports statically is exactly `{vue}`, and `chart.js`, `vitepress`, acorn and Prism appear only in the dynamically imported chunk;
+- the static import graph of `dist/index.js` and of the chunks it imports statically is exactly `{vue}`, and `chart.js`, `vitepress`, acorn and Prism appear only in the dynamically imported chunk. Rolldown emits a shared `_plugin-vue_export-helper.js` chunk that `index.js` imports statically, so the test follows static chunks rather than reading `index.js` alone, and the lazy chunk's file name is fixed with `chunkFileNames` (Rolldown otherwise names it after its folder);
 - no CSS import in the JavaScript, and `markdown.js` imports nothing;
 - no network API in `dist` outside license comments;
 - `publint`;
@@ -182,7 +182,10 @@ The example site grows in two steps:
 
 **D14. CI is zoom's `ci.yml`, adapted.**
 - It runs on pull requests and on pushes to `main`, on ubuntu-latest and windows-latest.
-- Steps: pnpm install with the frozen lockfile, Playwright browsers, lint, typecheck, build, unit, built-file, browser and example-site tests.
+- Steps: pnpm install with the frozen lockfile, Playwright browsers, lint, typecheck, `test`, example-site tests, publint and actionlint.
+  - `pnpm test` is self-contained: it builds, runs every Vitest project (unit, built-file and, from P5, browser tests), then `test:types`, the type fixtures under `bundler` and `nodenext` resolution. CI has no separate build step.
+  - actionlint runs on Linux only, since its action downloads a Linux binary.
+  - The Playwright step arrives with the browser test project in P5; before it, nothing installs Playwright.
 - `permissions: contents: read`, with actions pinned by SHA as Chart.js does.
 - Coveralls is left out (D20).
 - Zoom's `pr-title.yml` runs from the first piece, so every squash title is conventional before the first automated release.
@@ -196,7 +199,7 @@ The example site grows in two steps:
   - `concurrency: release`;
   - runs only when `github.repository_owner == 'chartjs'` and the ref is `refs/heads/main`;
   - permissions `contents`, `issues` and `pull-requests: write`, plus `id-token: write`;
-  - steps: checkout with full history and no persisted credentials, install, browsers, build, `test` and `test:site`;
+  - steps: checkout with full history and no persisted credentials, install, browsers, `test` (which builds) and `test:site`;
   - then `npm --version` (trusted publishing needs npm 11.5.1 or later; Node 26 ships it);
   - then `node scripts/require-release-tag.mjs origin/main` (D16);
   - then `pnpm exec semantic-release` with `GITHUB_TOKEN`;
@@ -285,11 +288,11 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 
 | Piece | Builds | Files | Fails without it | Size | Waits on |
 | --- | --- | --- | --- | --- | --- |
-| P1 | Repository scaffold and CI: tooling, the public types, the main entry, the built-file test harness, the pull request title check | `package.json` (private, `0.0.0-development`, peers, exports `.`), `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.node-version`, `.editorconfig`, `.gitignore`, `.prettierrc`, `eslint.config.js`, `tsconfig.json`, `tsconfig.build.json`, `vite.config.ts`, `vitest.config.ts`, `src/index.ts`, `src/types.ts`, `test/dist.test.ts`, `test/types/*`, `.github/workflows/{ci,pr-title}.yml`, `.github/dependabot.yml`, `CONTRIBUTING.md` | there is no CI; nothing checks that the main entry imports in Node without browser globals, that `ChartjsThemeConfig` resolves from the package root, or that `dist` has no network API | ~300 | nothing |
+| P1 | Repository scaffold and CI: tooling, the public types, the main entry, the built-file test harness, the pull request title check | `package.json` (private, `0.0.0-development`, peers, exports `.`), `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.node-version`, `.editorconfig`, `.gitignore`, `.prettierrc`, `eslint.config.js`, `tsconfig.json`, `tsconfig.build.json`, `vite.config.ts`, `vitest.config.ts`, `src/index.ts`, `src/types.ts`, `test/dist.test.ts`, `test/types/*` (fixtures, `tsconfig.json`, `tsconfig.nodenext.json`), `.github/workflows/{ci,pr-title}.yml`, `.github/dependabot.yml`, `CONTRIBUTING.md`, `README.md` (status), `.prettierignore` | there is no CI; nothing checks that the main entry imports in Node without browser globals, that `ChartjsThemeConfig` resolves from the package root, or that `dist` has no network API | ~300 | nothing |
 | P2 | The markdown plugin and its entry | `src/markdown.ts`, `vite.config.ts`, `package.json` (exports `./markdown`), `test/markdown.test.ts`, `test/dist.test.ts`, `test/types/*` | the verbatim test (`&amp;` is changed by zoom's escaping); the test that other fences render identically; `chartEditor` from `/markdown` resolves | ~190 | P1 |
 | P3 | The evaluator, block parser, debounce and source-link builder, as pure TypeScript | `src/runtime/{evaluate,blocks,debounce,source-link}.ts`, `test/runtime/*.test.ts`, `package.json` (acorn devDependency) | their unit tests: strict mode, locals, a rejected non-identifier name, console capture, exports, actions once, a throw leaving state unchanged, block order, a marker in a string, 500 ms | ~340 | P1; can run beside P2 |
 | P4 | Editor shell, installer, server placeholder and lazy runtime with a chart created on mount; a build-only example site | `src/{plugin.ts,ChartEditor.vue,index.ts}`, `src/runtime/{index.ts,LiveEditor.vue,ChartView.vue}`, `test/ssr.test.ts`, `test/dist.test.ts` (import graph), `test/types/*`, `test/site/{package.json,.vitepress/config.ts,.vitepress/theme/index.ts,index.md}`, `test/site.test.ts`, `pnpm-workspace.yaml`, `package.json` (`test:site`), `.github/workflows/ci.yml` | the server render shows a placeholder under the global name `ChartEditor` and calls no imports; the import graph of `dist/index.js` is `{vue}`; the example site builds with the package external; `ChartEditor` and `chartEditorPlugin` resolve from the root | ~400 | P2, P3 |
-| P5 | Chart lifecycle in the browser: update, destroy, errors from Chart.js, revealed panels, imports once, no options | `src/runtime/{LiveEditor,ChartView}.vue`, `vitest.config.ts` (browser project, `vitepress` stub), `test/browser/chart.test.ts` | browser: the chart is created after mount and updated rather than recreated; unmount destroys it; `display: none`, `hidden` and closed `<details>` each draw at size when revealed; page elements are found; imports are loaded once; `app.use(chartEditorPlugin)` without options runs `Chart` and `console`; an unknown chart type keeps the chart and shows the message; no iframe or shadow root | ~270 | P4 |
+| P5 | Chart lifecycle in the browser: update, destroy, errors from Chart.js, revealed panels, imports once, no options | `src/runtime/{LiveEditor,ChartView}.vue`, `vitest.config.ts` (browser project, `vitepress` stub), `test/browser/chart.test.ts`, `.github/workflows/ci.yml` (Playwright browsers), `package.json` (`@vitest/browser-playwright`) | browser: the chart is created after mount and updated rather than recreated; unmount destroys it; `display: none`, `hidden` and closed `<details>` each draw at size when revealed; page elements are found; imports are loaded once; `app.use(chartEditorPlugin)` without options runs `Chart` and `console`; an unknown chart type keeps the chart and shows the message; no iframe or shadow root | ~270 | P4 |
 | P6 | Code textarea with Prism highlighting, the Tab key and 500 ms re-evaluation of the whole code | `src/runtime/{CodeTextarea.vue,prism-flags.ts,prism.ts,LiveEditor.vue}`, the textarea and token styles, `test/browser/textarea.test.ts` | an edit updates the chart after 500 ms and not before; Tab inserts spaces; the built chunk leaves a page `language-js` code block untouched one frame after load | ~330 | P5, P3 (debounce) |
 | P7 | Tabs from blocks, the busy indicator, the editor chrome and the stylesheet entry | `src/runtime/{CodeEditor.vue,LiveEditor.vue}`, `src/styles/editor.css`, `package.json` (exports `./style.css`), `test/browser/editor.test.ts`, `test/dist.test.ts`, `test/types/*` | tabs in block order, with hidden code running; the busy indicator while typing; a page's `.text-muted`, `.scrollable` and `.text-error` unchanged by the stylesheet; `dist/style.css` exported, and no JavaScript references it | ~390 | P6, P3 (blocks) |
 | P8 | Error display, output tab, action buttons, source link | `src/runtime/{Tooltip,CodeOutput,ChartActions}.vue`, `src/runtime/{CodeEditor,LiveEditor}.vue`, their styles, `test/browser/features.test.ts` | the error is kept and reachable by focus; output capped at 50, accumulating, with its placeholder, and edits survive an `output` change; actions are read once; the link is built from the source path and hidden without `source` | ~370 | P7 |
@@ -302,9 +305,9 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 
 **Between pieces**
 - **P1 to all:**
-  - `pnpm build` writes `dist/`;
+  - `pnpm build` writes `dist/`, and `pnpm test` builds before it runs Vitest and then `test:types`;
   - `test/dist.test.ts` runs on `dist`, and each entry added is appended to it;
-  - `test/types/` imports every public name from its entry, and each piece adds the names it ships;
+  - `test/types/` imports every public name from its entry, and each piece adds the names it ships; relative imports in `src` carry `.js`, since the `nodenext` fixture needs it in the declarations;
   - Vitest has a `node` project; P5 adds a `browser` project;
   - the types live in `src/types.ts`: `ChartjsThemeConfig`, `ChartEditorOptions` and `ChartAction`.
 - **P2 to P4:** `chartEditor(md)` emits `<ChartEditor :code='…' />`.
@@ -323,7 +326,7 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 - **P7 to P8:**
   - `CodeEditor` takes `error`, `messages` and `output` props and has places for the error indicator and the source link;
   - styles go in SFC `<style>` blocks or in `src/styles/editor.css`, all scoped under `.chart-editor`, and all of them end up in `dist/style.css`.
-- **P9 to P10:** `pnpm test` covers the unit, built-file and browser tests, and `pnpm test:site` the example site in build and dev. The release workflow runs both.
+- **P9 to P10:** `pnpm test` builds and covers the unit, built-file and browser tests and the type fixtures, and `pnpm test:site` the example site in build and dev. The release workflow runs both.
 
 **What Chart.js gets** (from chartjs/Chart.js `migrate-docs-to-vitepress` design, Contracts; the names are agreed and must not change)
 - **Entry points**, ESM and shipped compiled:

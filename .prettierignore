@@ -1,0 +1,3 @@
+# The lockfile belongs to pnpm, and openspec/ keeps the line wrapping its design workflow writes.
+pnpm-lock.yaml
+openspec

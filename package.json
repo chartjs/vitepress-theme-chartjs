@@ -1,0 +1,53 @@
+{
+  "name": "vitepress-theme-chartjs",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "VitePress theme pieces for Chart.js docs: the live chart editor for samples",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json",
+    "lint": "eslint . && prettier --check .",
+    "typecheck": "vue-tsc -p tsconfig.json",
+    "test": "pnpm build && vitest run && pnpm test:types",
+    "test:types": "tsc -p test/types/tsconfig.json && tsc -p test/types/tsconfig.nodenext.json"
+  },
+  "peerDependencies": {
+    "chart.js": "^4.0.0",
+    "vitepress": "^1.6.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "@vitejs/plugin-vue": "^6.0.11",
+    "chart.js": "^4.6.2",
+    "eslint": "^10.15.0",
+    "eslint-plugin-vue": "^10.12.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "publint": "^0.3.25",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.74.0",
+    "vite": "^8.3.8",
+    "vitepress": "^1.6.4",
+    "vitest": "^5.1.1",
+    "vue": "^3.5.46",
+    "vue-eslint-parser": "^10.4.2",
+    "vue-tsc": "^3.3.14"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
