@@ -19,6 +19,14 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+  # The example site's own dependencies and lockfile (test/site is a workspace of its own).
+  - package-ecosystem: 'npm'
+    directory: '/test/site'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: chore
+      include: scope
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:

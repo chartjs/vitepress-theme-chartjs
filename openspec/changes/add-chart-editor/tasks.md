@@ -86,9 +86,9 @@
 
 ## 4b. P4b: A build-only example site
 
-- [ ] 4.3 Write `test/site.test.ts` (build only, in its own Vitest project `site`, outside the default `vitest run`):
+- [x] 4.3 Write `test/site.test.ts` (build only, with its own Vitest config, `vitest.site.config.ts`, so that a bare `vitest` and `pnpm test` leave it out and work without the site installed):
   - run `vitepress build test/site` with `DEBUG=1`, so that `.vitepress/.temp` is kept;
-  - assert that the installed `test/site/node_modules/vitepress-theme-chartjs/dist/index.js` has the same bytes as the root's `dist/index.js`, so a run against a stale copy fails;
+  - assert that every file in the installed `test/site/node_modules/vitepress-theme-chartjs/dist/` has the same bytes as the root's `dist/`, so a run against a stale copy fails;
   - assert that `.vitepress/.temp/app.js`, or a server chunk, imports `vitepress-theme-chartjs`;
   - assert that the built `index.html` contains the placeholder.
 
@@ -99,11 +99,11 @@
   - `.vitepress/theme/index.ts` with `chartEditorPlugin` and the default theme (a bare `import 'vitepress-theme-chartjs'` would be dropped, since `sideEffects` marks the JavaScript as free of them);
   - `index.md` with one bar sample.
 
-  `pnpm build` replaces `dist`, and the site's copy is hard links to the old files, so `test:site` is `pnpm build && pnpm --dir test/site install --frozen-lockfile && vitest run --project site`. Any change to the root's `peerDependencies` or dependency ranges makes that frozen install fail with `local dependency … is outdated`; `test:site` then prints "run `pnpm --dir test/site install` and commit the site lockfile", and CONTRIBUTING.md says so. Make `.gitignore`'s `.vitepress/…` lines match at any depth. Add `test:site` to `ci.yml`, and a Dependabot entry for `/test/site`.
+  `pnpm build` replaces `dist`, and the site's copy is hard links to the old files, so `test:site` is `pnpm build && pnpm test:site:install && vitest run --config vitest.site.config.ts`, where `test:site:install` is `pnpm --dir test/site install --frozen-lockfile` with the hint on failure. Any change to the root's `peerDependencies` or dependency ranges makes that frozen install fail with `local dependency … is outdated`; `test:site` then prints "run `pnpm --dir test/site install` and commit the site lockfile", and CONTRIBUTING.md says so. Make `.gitignore`'s `.vitepress/…` lines match at any depth. Add `test:site` to `ci.yml`, and a Dependabot entry for `/test/site`. `tsconfig.json` names the site's `.vitepress` files (wildcards skip dot folders) and maps `vitepress-theme-chartjs` to `src` and `vitepress` to the root's copy with `paths`, so `pnpm typecheck` checks them before any build or site install, with no file from `test/site/node_modules`.
 
 ## 5. P5: Chart lifecycle in the browser
 
-- [ ] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Exclude `test/browser/**` from the `node` project, whose `test/**/*.test.ts` glob would otherwise pick the browser tests up too. Write `test/browser/chart.test.ts`:
+- [ ] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Exclude `test/browser/**` from the `node` project, whose `test/**/*.test.ts` glob would otherwise pick the browser tests up too. A bare `vitest` then also needs Playwright's browsers installed; say so in CONTRIBUTING, or give the browser tests their own config as P4b did for the site. Write `test/browser/chart.test.ts`:
   - the chart is created after mount from `module.exports.config`, and `chart.data` is the exported `config.data`;
   - a second evaluation updates the same instance with the new data and options;
   - unmount destroys it (`Chart.getChart(canvas)` is undefined);

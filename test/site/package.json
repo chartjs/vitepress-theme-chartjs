@@ -1,0 +1,12 @@
+{
+  "name": "vitepress-theme-chartjs-test-site",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "chart.js": "^4.6.2",
+    "vitepress": "^1.6.4",
+    "vitepress-theme-chartjs": "file:../..",
+    "vue": "^3.5.46"
+  },
+  "packageManager": "pnpm@12.21.0"
+}

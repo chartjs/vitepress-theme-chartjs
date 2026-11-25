@@ -1,0 +1,6 @@
+# The example site is a workspace of its own, so that it installs the package as published (a copy in node_modules,
+# from file:../..): pnpm 12 cannot inject the root of a workspace into one of its members.
+
+# VitePress 1 depends on Vite 5, which needs esbuild's install script.
+allowBuilds:
+  esbuild: true
