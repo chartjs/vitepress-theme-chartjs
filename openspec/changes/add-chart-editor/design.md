@@ -1,0 +1,353 @@
+## Context
+
+Chart.js is moving its docs from VuePress 1 to VitePress (chartjs/Chart.js, `openspec/changes/migrate-docs-to-vitepress/`). Its decision D3 puts the live chart editor into a new shared package, `vitepress-theme-chartjs`. The design's `## Contracts` section states what Chart.js needs; `## Contracts` below repeats it. This repository, chartjs/vitepress-theme-chartjs, holds only a README and an MIT LICENSE. The npm name is free.
+
+The reference implementation is chartjs-plugin-zoom's VitePress editor, under `docs/.vitepress/` at commit 1a2812f (zoom pull request 972). What it does, and where it departs from the contract, file by file:
+
+- **Fence plugin** (`markdown/chart-editor.ts`)
+  - It matches `/ chart-editor( |$)/` on the trimmed info string (:3, :24) and delegates every other fence to the previous rule (:18, :25).
+  - It passes the code as `JSON.stringify(code)` in a single-quoted attribute, escaping only `'` (:28).
+  - Vue's template compiler decodes entities in attribute values, so a sample containing `&amp;` or `&#39;` reaches the component altered.
+- **Direct imports**
+  - `ChartEditor.vue:2` and `ChartView.vue:2` import `chart.js`.
+  - `ChartEditor.vue:7` imports the consumer's `./chart-imports`. That module registers Chart.js components as a side effect (`chart-imports.ts:5-9`).
+  - `CodeEditor.vue:2` imports acorn, `:4` imports `useData` from `vitepress`, and `CodeTextarea.vue:6` imports the full `prismjs` bundle.
+  - All of these are static, so they load during server rendering.
+- **`vitepress` in Node.** In plain Node, the `vitepress` package's "." export resolves to `dist/node/index.js`, which has no `useData`. VitePress's server build inlines only `vitepress` and `@docsearch/css` (`ssr.noExternal`). A package that ships compiled JavaScript is left external, so Node would load it and fail on `useData`.
+- **Prism.**
+  - The full bundle, in the browser, reads `document.currentScript` and `readyState` at import time.
+  - Unless `Prism.manual` is set, it then runs `highlightAll()` on the next frame (prism.js:1173-1205). Its selector, `[class*="language-"] code`, matches VitePress's Shiki blocks.
+  - It also carries the fileHighlight plugin, which sends an `XMLHttpRequest` for `pre[data-src]` (prism.js:1797, 1841).
+  - Apart from Prism, the editor makes no network request and uses inline SVG icons.
+- **Evaluation** (`ChartEditor.vue:24-71`): strict mode, `const` locals taken from a context object, `module.exports`, and `markRaw` on the config.
+  - Actions are taken while still null (:60), not strictly on the first evaluation.
+  - `output` is re-read on every evaluation (:58). Changing it re-parses the original code and drops the reader's edits (`CodeEditor.vue:160`).
+  - Log lines build up across evaluations, capped at 50 (:37).
+- **Chart lifecycle** (`ChartView.vue:18-40`): create, then replace `data` and `options` and `update()`, then destroy. Errors thrown by Chart.js there are not caught.
+- **Source link** (`CodeEditor.vue:47-50`): built from `relativePath`, where VitePress's own edit link uses `filePath`. It throws when `source` is not set and doubles the slash when `dir` is empty.
+- **CSS**
+  - The theme imports its CSS from JavaScript (`theme/index.ts:5-6`).
+  - `editor.css` defines global `.scrollable`, `.text-muted` and `.text-error`.
+  - The editor relies on `--chartjs-code-bg`, `--chartjs-code-text`, `--chartjs-radius`, `--chartjs-danger` and `--chartjs-accent-*`. They are defined only in zoom's `palette.css`; Chart.js's palette has none of them.
+- **Error display:** errors appear only in a hover tooltip (`Tooltip.vue:33`).
+
+The consumer, Chart.js on upstream/master:
+- aliases `chart.js` to its `dist/chart.js` and `vue` to the docs package's Vue;
+- lists `chart.js` under `peerDependencyRules.ignoreMissing`;
+- uses pnpm 12.21.0 and Node 26;
+- keeps its site palette in `docs/.vitepress/theme/styles/palette.css`.
+
+## Goals / Non-Goals
+
+**Goals**
+- Deliver the contract exactly, with the agreed names, keeping zoom's editor shape so its code moves with few changes.
+- Work when Vite leaves the package external in the server build, and share one Chart.js with a site that aliases it.
+- Prove both with an example site built from the package as installed.
+- Release as chartjs-plugin-zoom does; first version 0.1.0.
+
+**Non-Goals**
+- VitePress 2. The peer range is `^1.6.0`.
+- Dark-mode styling of charts, and the Chart.js site palette.
+- Tabs on pages. Chart.js P9 converts its tab pages with a tabs plugin; this package only has to draw correctly when revealed.
+- CodeSandbox export, a docs site for this package, and prereleases or a `next` dist-tag.
+- Migrating the other plugin repositories.
+
+## Decisions
+
+**D1. The repository is chartjs/vitepress-theme-chartjs and the npm package is the unscoped `vitepress-theme-chartjs`** (user decision). *Alternatives:* a scoped name; a folder in the Chart.js repository (no reuse by the plugins).
+
+**D2. The contract's names and zoom's shape are kept, with these fixes:**
+- `&` is escaped before `'` in the fence attribute.
+- Errors from creating or updating the chart are caught and shown, and the previous chart stays.
+- Actions are read strictly on the first evaluation.
+- The Output tab is added or removed without re-parsing the code.
+- Names in `imports` that are not identifiers are rejected with a message.
+- The error tooltip also opens on keyboard focus.
+- The editor's global classes are prefixed.
+
+Console lines keep building up across evaluations, last 50, as in zoom. *Alternative:* port zoom's code unchanged. That ships the fence bug and the hidden Chart.js errors.
+
+**D3. Everything browser-only loads lazily after mount.**
+- The main entry's static imports are `vue` and the package's own files only.
+- The `ChartEditor` component renders a placeholder on the server and on the client's first render, so hydration matches.
+- In `onMounted` it loads the runtime chunk and the site's imports together, then renders the live editor. The runtime chunk holds `chart.js`, `useData` from `vitepress`, acorn, Prism and the editor components.
+- The installer memoises `imports()`, so it runs once per app, in the browser.
+- A load that finishes after unmount is ignored.
+- Effects:
+  - Node never resolves `vitepress` (no `useData` there), `chart.js` (which, for Chart.js, would be a second, auto-installed copy), acorn or Prism.
+  - In the client build, Vite bundles the chunk and applies the site's aliases.
+
+*Alternatives:*
+- Static imports, plus a README telling consumers to add the package to `ssr.noExternal`. That breaks the contract's "works when Vite leaves the package external".
+- Reading VitePress data through private app internals instead of `useData`. That is fragile.
+
+**D4. The build is Vite 8 library mode with `@vitejs/plugin-vue`, and the types come from `vue-tsc`.**
+- Vite builds two entries, `index` and `markdown`, as ES, and writes the runtime chunk under a stable name.
+- `cssFileName: 'style'` extracts every SFC `<style>`, scoped ones included, into `dist/style.css`, with no CSS import left in the JavaScript.
+- Externals: `vue`, `vitepress`, `chart.js`.
+- `vue-tsc -p tsconfig.build.json --declaration --emitDeclarationOnly` writes the `.d.ts` files into `dist/`.
+- It uses the same SFC compiler as VitePress, and Vitest reuses the same config. If Rolldown's library CSS extraction misbehaves, the build pins Vite 7.
+
+*Alternatives:*
+- unbuild/mkdist: ships `.vue` files uncompiled, which fails when the package is external.
+- tsdown (0.x): Vue support through unplugin-vue, and extracting scoped CSS in a library build is less proven.
+- vite-plugin-dts: wraps vue-tsc and adds a dependency for nothing.
+
+**D5. The package is ESM only, with this exports map:**
+- `.` → `dist/index.{js,d.ts}`
+- `./markdown` → `dist/markdown.{js,d.ts}`
+- `./style.css` → `dist/style.css`
+- `./package.json`
+
+Also `"type": "module"`, `"sideEffects": ["*.css"]` and `"files": ["dist"]`. `dist/markdown.js` has no imports at all. *Alternative:* a CommonJS build as well. VitePress loads its configuration as ESM, so it is not needed.
+
+**D6. Dependencies.**
+- Peers: `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`, none optional.
+- No runtime dependencies: Prism (core plus the clike and javascript grammars) and acorn are bundled into the runtime chunk, with their MIT notices kept.
+- A site that has to exclude the package from dependency pre-bundling (D18) then needs no `include` entries for nested CommonJS packages.
+
+*Alternative:* list prismjs and acorn as dependencies. Consumers would then also need `optimizeDeps.include: ['vitepress-theme-chartjs > prismjs', 'vitepress-theme-chartjs > acorn']`. Open question 1.
+
+**D7. Prism runs in manual mode with only the JavaScript grammar.** A module that runs before Prism's core sets `Prism.manual` and `disableWorkerMessageHandler`. As a result, Prism never highlights the page's own code blocks, and fileHighlight's request path is not in the bundle. *Alternative:* the full bundle, as in zoom.
+
+**D8. The fence plugin escapes `&` and then `'` inside a single-quoted attribute holding the JSON string.** Tests compile the result the way VitePress compiles a page. *Alternative:* base64 in the attribute, which needs decoding in the component and is unreadable in the HTML.
+
+**D9. The package ships only editor styling.** Every `--chartjs-*` variable is used with a fallback (for example `var(--chartjs-code-bg, #282c34)`), so a site can override any of them and needs none. The site palette (brand, navigation, headings) stays in the consumer: Chart.js P8 lists its own `palette.css`. *Alternative:* ship zoom's whole palette. That would put Chart.js's site styling into every consumer. Open question 2.
+
+**D10. The source link uses `page.filePath`**, as VitePress's edit link does. Empty path segments are skipped, and the link is hidden when `source` is not set. *Alternative:* `relativePath`, which is wrong under rewrites.
+
+**D11. The server placeholder** is `div.chart-editor.chart-editor-placeholder`, with a fixed-height `div.chart-view` and `aria-busy="true"`. *Alternative:* render the code as a plain `<pre>`, so it is readable without scripts. Open question 3.
+
+**D12. Tests are layered by where they run.**
+
+| Layer | Runs in | Covers |
+|---|---|---|
+| Unit | Node (Vitest) | Fence plugin, block parser, evaluator, debounce, source-link building. The fence tests run through VitePress's own `createMarkdownRenderer`, wrap the output in an SFC as VitePress does, compile it with `@vue/compiler-sfc` and render it with `vue/server-renderer`. |
+| Built files | Node | Both entries imported with `window` and `document` as throwing getters; server rendering of an app with the installer; no CSS import in the JavaScript; `markdown.js` imports nothing; no network API in `dist` outside license comments; `publint`; a type fixture. |
+| Components | Vitest browser mode, `@vitest/browser-playwright`, Chromium and Firefox | The editor components. `vitepress` is aliased to a `useData` stub. |
+| Example site | Node driving Playwright, Chromium | `test/site/`, a workspace package that installs this package as an injected dependency, so it sits in `node_modules` as published. Built and previewed, then run in the dev server. |
+
+The example-site test asserts that:
+- the server bundle imports `vitepress-theme-chartjs`, so the package really was external;
+- there is no hydration warning;
+- charts are drawn and an edit redraws;
+- `Chart === Utils.Chart`, with `chart.js` aliased as Chart.js does;
+- a time-scale sample renders;
+- every request stays on the site's origin.
+
+*Alternative:* jsdom for components. It has no canvas layout and no ResizeObserver, so it would prove nothing about drawing.
+
+**D13. Tooling.**
+- pnpm 12.21.0 (`packageManager`) and Node 26 (`.node-version`), as in Chart.js.
+- TypeScript `~6.0`, because typescript-eslint needs `<6.1`.
+- ESLint 10 flat config with typescript-eslint and eslint-plugin-vue.
+- Prettier with zoom's settings (single quotes, no semicolons, width 120), so the moved code reads the same.
+- `package.json` stays `"private": true` until the release piece.
+- `CONTRIBUTING.md` states the repository's rules:
+  - the public names are a contract with Chart.js;
+  - nothing outside the runtime chunk may touch browser globals;
+  - the package makes no network requests;
+  - pull request titles follow Conventional Commits.
+
+*Alternative:* npm, as zoom uses. The consumer is pnpm.
+
+**D14. CI is zoom's `ci.yml`, adapted.**
+- It runs on pull requests and on pushes to `main`, on ubuntu-latest and windows-latest.
+- Steps: pnpm install with the frozen lockfile, Playwright browsers, lint, typecheck, build, unit, built-file, browser and example-site tests.
+- `permissions: contents: read`, with actions pinned by SHA as Chart.js does.
+- Coveralls is left out (open question 6).
+- Zoom's `pr-title.yml` runs from the first piece, so every squash title is conventional before the first automated release.
+- Dependabot is set up as in zoom, with `chore(deps)` and `chore(deps-dev)` prefixes.
+
+*Alternative:* ubuntu only, which is faster.
+
+**D15. Releases work as on zoom's master** (user decision): semantic-release, started by hand. The setup is copied, adapted only to `main`, pnpm and Node 26.
+- `release.yml`:
+  - `workflow_dispatch` with a `dry-run` input;
+  - `concurrency: release`;
+  - runs only when `github.repository_owner == 'chartjs'` and the ref is `refs/heads/main`;
+  - permissions `contents`, `issues` and `pull-requests: write`, plus `id-token: write`;
+  - steps: checkout with full history and no persisted credentials, install, browsers, build, test, `npm --version` (trusted publishing needs npm 11.5.1 or later; Node 26 ships it), then `pnpm exec semantic-release` with `GITHUB_TOKEN`;
+  - no docs job.
+- `.releaserc.json`: branch `main`; the commit analyser and the notes generator with the `conventionalcommits` preset; `@semantic-release/npm` with `tarballDir: "pack"`; `@semantic-release/github` with assets `pack/*.tgz`.
+- `package.json`:
+  - version `0.0.0-development`;
+  - `prepack` builds;
+  - devDependencies `semantic-release ^25.0.9` and `conventional-changelog-conventionalcommits ^9.3.1`, whose majors Dependabot leaves alone, as in zoom.
+- `.gitignore` gains `/pack`.
+- `MAINTAINING.md` describes the release, what decides the version, and what to do when a release fails halfway.
+
+*Alternative:* release-drafter, publishing on a GitHub release. Zoom removed that setup in its pull request 999.
+
+**D16. The first release, 0.1.0, is published by hand by a chartjs npm maintainer** (user decisions: the hand publish, and the version 0.1.0). The release workflow takes over from the next release.
+- semantic-release finds the last release from `v*` tags reachable from `main`. With no tag, its first run would release 1.0.0. So:
+  1. The maintainer publishes 0.1.0 from a `main` commit that contains the release piece: set the version to 0.1.0 without committing it, run `pnpm install --frozen-lockfile`, `pnpm build` and `pnpm pack`, then `npm publish vitepress-theme-chartjs-0.1.0.tgz --access public`.
+  2. A repository maintainer pushes the tag `v0.1.0` on exactly that commit and creates the GitHub release `v0.1.0` by hand.
+  3. The npm maintainer adds a trusted publisher on npmjs.com (GitHub Actions; organisation `chartjs`; repository `vitepress-theme-chartjs`; workflow `release.yml`; no environment) and adds the chartjs npm organisation as owner.
+- From then on, a `fix:` releases 0.1.1, a `feat:` 0.2.0, and a breaking change 1.0.0.
+- `release.yml` fails before running semantic-release when no `v*` tag exists, so nobody can release 1.0.0 by accident before step 2.
+- 0.1.0 has no provenance; later versions do.
+
+*Alternatives:*
+- Let semantic-release publish the first version with an npm token. Nobody with access has chosen that, and it would be 1.0.0 unless forced.
+- Publish a placeholder version first. It adds a version nobody wants.
+
+**D17. Settings that only maintainers can change.**
+- **GitHub:**
+  - squash merging with the pull request title as the subject (today: "commit or pull request title"), with branches deleted on merge;
+  - a ruleset on `main` that requires a pull request, the CI check and `PR title / lint` (today `main` is unprotected);
+  - Actions allowed to write contents, issues and pull requests.
+- **npm:** as in D16.
+
+**D18. Dev pre-bundling with an aliased Chart.js.** Vite's dependency optimiser bundles whatever a pre-bundled package imports, aliased files included. A site that aliases `chart.js` to its own file must therefore exclude this package from pre-bundling; otherwise the editor gets a second Chart.js in dev, with nothing registered on it. The README documents `optimizeDeps: { exclude: ['vitepress-theme-chartjs'] }`, and the example site's dev-server test uses exactly that. **Chart.js P8 must add `vitepress-theme-chartjs` to `optimizeDeps.exclude`**, next to the date adapter it already excludes for the same reason. A site that resolves `chart.js` from `node_modules` needs nothing. *Alternative:* injecting `Chart` through the options, which the contract rules out (Chart.js D19).
+
+## Risks / Trade-offs
+
+- **Delay before the chart.** The runtime chunk loads after mount. Charts appear a moment after the page, and Chart.js is downloaded once by the site's imports and the editor's chunk together (one module in the bundle).
+- **A peer outside a caret range on 0.x.** Under semantic-release, a `feat:` after 0.1.0 releases 0.2.0, which `^0.1.0` excludes. Chart.js must widen its range to get new features. A `fix:` flows automatically.
+- **0.1.0 has no provenance**, and it depends on the hand procedure. A tag on the wrong commit would make the next release's notes wrong; MAINTAINING.md says to tag the commit that was packed.
+- **Bundled Prism and acorn** take security fixes only through a release of this package. Dependabot bumps their devDependencies; such a pull request needs a `fix(deps):` title to release.
+- **Vite 8 (Rolldown) library mode** is newer than Rollup's. The example-site test catches a broken stylesheet or chunk, and D4 falls back to Vite 7.
+- **Internal behaviour of VitePress.** The external-package check relies on VitePress 1's server build. A VitePress 2 move needs its own change.
+- **Firefox and Windows in CI** lengthen runs. Either can be dropped if it turns out flaky.
+- **semantic-release comments** on every pull request a release includes. The first automated release after 0.1.0 includes only later pull requests.
+
+## Pieces
+
+Sizes are hand-written changed lines, counting moved code; lockfiles are not counted.
+
+| Piece | Builds | Files | Fails without it | Size | Waits on |
+| --- | --- | --- | --- | --- | --- |
+| P1 | Repository scaffold and CI: tooling, the public types, the main entry, the built-file test harness, the pull request title check | `package.json` (private, `0.0.0-development`, peers, exports `.`), `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.node-version`, `.editorconfig`, `.gitignore`, `.prettierrc`, `eslint.config.js`, `tsconfig.json`, `tsconfig.build.json`, `vite.config.ts`, `vitest.config.ts`, `src/index.ts`, `src/types.ts`, `test/dist.test.ts`, `test/types/*`, `.github/workflows/{ci,pr-title}.yml`, `.github/dependabot.yml`, `CONTRIBUTING.md` | there is no CI; nothing checks that the main entry imports in Node without browser globals, that the types resolve, or that `dist` has no network API | ~300 | nothing |
+| P2 | The markdown plugin and its entry | `src/markdown.ts`, `vite.config.ts`, `package.json` (exports `./markdown`), `test/markdown.test.ts`, `test/dist.test.ts` | the verbatim test (`&amp;` changed by zoom's escaping) and the identical-output test for other fences | ~180 | P1 |
+| P3 | The evaluator, block parser, debounce and source-link builder, as pure TypeScript | `src/runtime/{evaluate,blocks,debounce,source-link}.ts`, `test/runtime/*.test.ts`, `package.json` (acorn devDependency) | their unit tests: strict mode, locals, console cap, exports, actions once, a throw leaves state unchanged, block order, a marker in a string, 500 ms | ~330 | P1; can run beside P2 |
+| P4 | Editor shell, installer, lazy runtime, chart view and lifecycle | `src/{plugin.ts,ChartEditor.vue,index.ts}`, `src/runtime/{index.ts,LiveEditor.vue,ChartView.vue}`, `vitest.config.ts` (browser project, `vitepress` stub), `test/ssr.test.ts`, `test/browser/chart.test.ts` | server render shows a placeholder and calls no imports; browser: chart created after mount, updated not recreated, destroyed on unmount, drawn at size when revealed, finds page elements, imports loaded once, errors from Chart.js shown | ~380 | P3 |
+| P5 | Code editor: tabs, textarea, highlighting, busy indicator, Tab key, stylesheet entry | `src/runtime/{CodeEditor,CodeTextarea}.vue`, `src/runtime/prism.ts`, `src/styles/editor.css`, `package.json` (exports `./style.css`), `test/browser/editor.test.ts`, `test/dist.test.ts` | tabs in block order with hidden code running; an edit updates the chart after 500 ms; Tab inserts spaces; Prism leaves the page's other code blocks alone; `dist/style.css` exists and no JavaScript imports CSS | ~400 | P4 |
+| P6 | Error display, output tab, action buttons, source link | `src/runtime/{Tooltip,CodeOutput,ChartActions}.vue`, `src/runtime/{CodeEditor,LiveEditor}.vue`, `src/styles/editor.css`, `test/browser/features.test.ts` | error kept and reachable by focus; output capped at 50 with its placeholder; actions read once; link built from the source path and hidden without `source` | ~300 | P5 |
+| P7 | Example site and consumer smoke test in build and dev; README usage | `test/site/**`, `test/site.test.ts`, `pnpm-workspace.yaml`, `package.json` (script), `.github/workflows/ci.yml`, `README.md` | nothing proves that the package works when external in the server build, shares one Chart.js with an aliasing site in build and dev, hydrates cleanly and makes no foreign request | ~300 | P2, P6 |
+| P8 | Release as in zoom; first-release procedure | `.releaserc.json`, `.github/workflows/release.yml`, `.github/dependabot.yml`, `.gitignore`, `MAINTAINING.md`, `package.json` (drop `private`, `prepack`, semantic-release devDependencies, repository, homepage, keywords) | no way to release; a release attempted before the first tag would be 1.0.0 | ~200 | P7; then the D16 and D17 steps by maintainers |
+
+**Order and parallel work.** P2 and P3 can be built at the same time; everything else is serial. `main` stays releasable throughout, because the package is `private` and no release path exists before P8. After P8: the hand release of 0.1.0 (D16), and then Chart.js P8.
+
+## Contracts
+
+**Between pieces**
+- **P1 to all:**
+  - `pnpm build` writes `dist/`;
+  - `test/dist.test.ts` runs on `dist`, and each entry added is appended to it;
+  - Vitest has a `node` project; P4 adds a `browser` project;
+  - the types live in `src/types.ts`: `ChartjsThemeConfig`, `ChartEditorOptions`, `ChartAction`.
+- **P3 to P4:**
+  - `evaluate(code, scope)` returns `{config, actions, output}` or throws;
+  - `scope` is `{Chart, imports, log(line)}`;
+  - `parseBlocks(code)` returns the ordered tabs and the full block list; it throws the parser's error on invalid code;
+  - `debounce(fn, ms)` returns a function with `cancel()`;
+  - `sourceLink(source, filePath)` returns a string or `undefined`.
+- **P4 to P5:**
+  - `LiveEditor` holds the evaluation state and accepts edited code through an `input` event;
+  - `ChartView` exposes `chart()`;
+  - the runtime chunk is the only module that imports `chart.js`, `vitepress`, acorn or Prism.
+- **P5 to P6:**
+  - `CodeEditor` takes `error`, `messages` and `output` props and has slots or places for the error indicator and the source link;
+  - styles go in SFC `<style>` blocks or in `src/styles/editor.css`, both of which end up in `dist/style.css`.
+- **P7 to P8:**
+  - `pnpm test` covers unit, built-file and browser tests;
+  - `pnpm test:site` covers the example site;
+  - the release workflow runs both.
+
+**What Chart.js gets** (from chartjs/Chart.js `migrate-docs-to-vitepress` design, Contracts; the names are agreed and must not change)
+- **Entry points**, ESM, shipped compiled:
+  - `vitepress-theme-chartjs/markdown`: `chartEditor(md)`;
+  - `vitepress-theme-chartjs`: the `ChartEditor` component, `app.use(chartEditorPlugin, options)` and the type `ChartjsThemeConfig`;
+  - `vitepress-theme-chartjs/style.css`, imported by the consumer; the JavaScript imports no CSS.
+- **Options and theme configuration:**
+  - `ChartEditorOptions { imports?: () => Promise<Record<string, unknown>> }`: called once, in the browser only, before the first sample runs;
+  - `ChartjsThemeConfig extends DefaultTheme.Config { source: { repo: string; branch: string; dir: string } }`.
+- **Chart.js:** `chart.js` is a peer that the package imports. Chart.js satisfies it with its alias to `dist/chart.js`.
+- **Fences:** a fence is taken over when its trimmed info string matches `/ chart-editor( |$)/`, and its code arrives verbatim.
+- **Sample format:**
+  - the code runs in a strict-mode function with `Chart`, the imports, a captured `console.log` (last 50 lines) and `module.exports` as locals;
+  - the editor reads `config` (not made reactive or frozen), `actions` (first evaluation only) and `output`.
+- **Block markers:** they match `/^\s*<(\/?)block:([\w\s]+)(?::(\d+))?>\s*$/` and are found by a parser.
+- **Editing:** 500 ms debounce; an error keeps the chart; create first, then `data` and `options` plus `update()`; destroy on leave.
+- **Rendering:** in the page's document after mount, with the classes `chart-editor` and `chart-view`; a hidden sample draws correctly when shown.
+- **No network requests.**
+- **Server rendering:** neither entry touches `window` or `document` in Node; a placeholder on the server, no `imports` call, no evaluation.
+- **Peers:** `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`. Chart.js depends on `^0.1.0`.
+- **Addition for Chart.js P8:** add `vitepress-theme-chartjs` to `vite.optimizeDeps.exclude` (D18).
+
+Consumer usage, as the README states it:
+
+```ts
+// .vitepress/config.ts
+import { chartEditor } from 'vitepress-theme-chartjs/markdown'
+export default defineConfigWithTheme<ChartjsThemeConfig>({
+  markdown: { config: (md) => { chartEditor(md) } },
+  vite: { optimizeDeps: { exclude: ['vitepress-theme-chartjs'] } }, // when chart.js is aliased
+  themeConfig: { source: { repo: 'chartjs/Chart.js', branch: 'master', dir: 'docs' } },
+})
+
+// .vitepress/theme/index.ts
+import { chartEditorPlugin } from 'vitepress-theme-chartjs'
+import 'vitepress-theme-chartjs/style.css'
+export default {
+  extends: DefaultTheme,
+  enhanceApp({ app }) {
+    app.use(chartEditorPlugin, { imports: () => import('./chart-imports').then((m) => m.imports) })
+  },
+}
+```
+
+## Open Questions
+
+1. **Bundle Prism and acorn, or list them as dependencies?**
+   - Bundling: no runtime dependencies; only `exclude` is needed in the consumer's dev config.
+   - Dependencies: shared and patched through semver; consumers also need `optimizeDeps.include` entries for both.
+
+   Recommendation: bundle them (D6).
+2. **Where does the palette live?**
+   - Editor variables with fallbacks in the package, and the site palette in Chart.js.
+   - Zoom's whole `palette.css` in the package.
+
+   Recommendation: editor variables only (D9).
+3. **What does the server placeholder contain?**
+   - An empty reserved box.
+   - The sample code as a plain `<pre>`, readable without scripts.
+
+   Recommendation: the empty box. It is the smallest hydration risk, and Chart.js requires only page text and navigation without scripts (D11).
+4. **Should the README document usage?**
+   - Yes: install, configuration, theme, stylesheet, sample format, dev note.
+   - A one-line pointer to Chart.js.
+
+   Recommendation: yes, written in P7 and proved by the example site.
+5. **CHANGELOG?**
+   - GitHub release notes only, generated by semantic-release, as in zoom.
+   - Also a `CHANGELOG.md` through `@semantic-release/changelog`, which needs a commit back to `main`.
+
+   Recommendation: release notes only.
+6. **Coveralls?**
+   - Keep zoom's Coveralls steps, which needs the repository enabled on Coveralls.
+   - Leave them out.
+
+   Recommendation: leave out; add later if wanted.
+7. **License header?**
+   - None in source files and no banner in `dist`; LICENSE ships in the package.
+   - A banner with name, version and license.
+
+   Recommendation: none. Bundled MIT notices are kept.
+8. **Browsers and operating systems in CI?**
+   - Zoom's ubuntu and windows matrix, with Chromium and Firefox for component tests and Chromium for the example site.
+   - Ubuntu and Chromium only.
+
+   Recommendation: the zoom matrix as in D14.
+9. **A lowest-peers job?**
+   - Build the example site also against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0`.
+   - Test only the current versions.
+
+   Recommendation: add it as a second CI job in P7.
+10. **Console lines across edits?**
+    - Keep building up (last 50), as in zoom.
+    - Clear them on each evaluation.
+
+    Recommendation: keep zoom's behaviour (D2).
+
