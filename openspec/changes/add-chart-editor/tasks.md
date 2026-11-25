@@ -103,15 +103,16 @@
 
 ## 5. P5: Chart lifecycle in the browser
 
-- [ ] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Exclude `test/browser/**` from the `node` project, whose `test/**/*.test.ts` glob would otherwise pick the browser tests up too. A bare `vitest` then also needs Playwright's browsers installed; say so in CONTRIBUTING, or give the browser tests their own config as P4b did for the site. Write `test/browser/chart.test.ts`:
+- [x] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Exclude `test/browser/**` from the `node` project, whose `test/**/*.test.ts` glob would otherwise pick the browser tests up too. A bare `vitest` then also needs Playwright's browsers installed; say so in CONTRIBUTING, or give the browser tests their own config as P4b did for the site. Write `test/browser/chart.test.ts`:
   - the chart is created after mount from `module.exports.config`, and `chart.data` is the exported `config.data`;
   - a second evaluation updates the same instance with the new data and options;
   - unmount destroys it (`Chart.getChart(canvas)` is undefined);
   - editors inside an element with `display: none`, with the `hidden` attribute, and inside a closed `<details>` each draw at their container's size once revealed;
   - a sample finds an element written beside it;
   - two editors call `imports` once;
-  - `app.use(chartEditorPlugin)` with no options runs a sample using `Chart` and `console`;
-  - an unknown chart type in a later evaluation keeps the previous chart and exposes the message;
+  - `app.use(chartEditorPlugin)` with no options runs a sample using `Chart` and `console`, which draws with what the site has registered on Chart.js (D21; the tests register `registerables`);
+  - an unknown chart type in a later evaluation keeps the previous chart and exposes the message; after an unknown chart or dataset type, a dataset hidden before stays hidden;
+  - a later evaluation that exports no `config` leaves the chart as it is, without an error;
   - a later evaluation that throws keeps the same chart instance (`Chart.getChart(canvas)` unchanged) and sets the error;
   - a rejected `imports` shows its message in the shell's `div.chart-editor.chart-editor-failed[role=alert]` in place of the placeholder, in the page (P4a tests this in Node, on an in-memory renderer);
   - no iframe and no shadow root.
@@ -129,7 +130,7 @@
   It fails where P4a does not yet behave this way.
 
   Add the Playwright step to `ci.yml`, after the install: `pnpm exec playwright install --with-deps chromium firefox`.
-- [ ] 5.2 Extend `ChartView.vue` with zoom's update path, and catch errors from `new Chart` and `update()`, emitting them. Make `LiveEditor.vue` keep the previous config on error and expose the error state.
+- [x] 5.2 Extend `ChartView.vue` with zoom's update path, applying the `type` too, and catch errors from `new Chart` and `update()`, emitting them (D2: types checked before the chart is touched, the previous config put back after any other throw, a failed `new Chart` destroyed). Make `LiveEditor.vue` keep the previous config when an evaluation throws, and set the error from what `ChartView` emits. Its exposed `config` stays the last evaluated one, which after a rejected config is not what is drawn.
 
 ## 6. P6: Code textarea, highlighting and re-evaluation
 
@@ -217,7 +218,7 @@
     2. push the tag `v0.1.0` on that same commit and create the GitHub release `v0.1.0`;
     3. on npmjs.com, add the trusted publisher (GitHub Actions, `chartjs`, `vitepress-theme-chartjs`, `release.yml`, no environment) and the chartjs organisation as owner;
     4. from then on, run the `Release` workflow, which continues from `v0.1.0`.
-- [ ] 10.7 Write the README usage section: install, configuration, theme, stylesheet, sample format, block markers, and the `optimizeDeps.exclude` note for sites that alias `chart.js`. Use the configuration P9 proved.
+- [ ] 10.7 Write the README usage section: install, configuration, theme, stylesheet, sample format, block markers, the `optimizeDeps.exclude` note for sites that alias `chart.js`, and that the site must register on Chart.js what its samples use, since the package registers nothing (D21). Use the configuration P9 proved.
 - [ ] 10.8 After merge, maintainers:
   - change the repository settings in design D17;
   - carry out the first-release steps above;

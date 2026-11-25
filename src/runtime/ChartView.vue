@@ -39,17 +39,19 @@ function create(target: HTMLCanvasElement, config: ChartConfiguration) {
 
 /** Zoom's update path, with the type: the same instance animates to the new data and options. */
 function update(chart: Chart, config: ChartConfiguration) {
-  const previous = { type: chart.config.type, data: chart.config.data, options: chart.config.options }
+  // The chart was created from a ChartConfiguration, so its config has a type.
+  const current = chart.config as ChartConfiguration
+  const previous = { type: current.type, data: current.data, options: current.options }
   try {
     chart.stop()
-    chart.config.type = config.type
+    current.type = config.type
     chart.data = config.data || { datasets: [] }
     chart.options = config.options || {}
     chart.update()
   } catch (error) {
     // Put back what drew last, so that the next resize does not throw the same error again. Should that update throw
     // too, its error is the one reported, and nothing is tried again.
-    chart.config.type = previous.type
+    current.type = previous.type
     chart.data = previous.data
     chart.options = previous.options ?? {}
     chart.update()

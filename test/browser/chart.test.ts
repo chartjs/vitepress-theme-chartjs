@@ -122,6 +122,17 @@ describe('the chart', () => {
     expect(chart.options.plugins?.title?.text).toBe('Second')
   })
 
+  it('takes a changed type on the same instance', async () => {
+    const root = fixture()
+    const { code } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+
+    code.value = bar([4, 5, 6]).replace("type: 'bar'", "type: 'line'")
+    await nextTick()
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(chart.getDatasetMeta(0).type).toBe('line')
+  })
+
   it('is destroyed on unmount', async () => {
     const root = fixture()
     const { unmount } = mountShell(root, [bar([1, 2, 3])])

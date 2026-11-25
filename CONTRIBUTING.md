@@ -6,21 +6,33 @@ You need Node 26 (see `.node-version`) and pnpm, in the version that `packageMan
 
 ```sh
 pnpm install
+pnpm exec playwright install chromium firefox
 pnpm test
 ```
+
+The second line downloads the browsers that the component tests run in; it is needed once per Playwright version.
 
 | Script            | What it does                                                                                                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm build`      | Builds `dist/` with Vite's library mode and writes the type declarations with `vue-tsc`.                                                                                  |
 | `pnpm lint`       | ESLint, then Prettier's check.                                                                                                                                            |
 | `pnpm typecheck`  | Type-checks the sources, tests and configuration, the example site's included.                                                                                            |
-| `pnpm test`       | Builds, runs Vitest (including `test/dist.test.ts` on `dist/`), then `test:types`.                                                                                        |
+| `pnpm test`       | Builds, runs Vitest's `node` project (including `test/dist.test.ts` on `dist/`) and its `browser` project, then `test:types`.                                             |
 | `pnpm test:types` | Type-checks the fixtures in `test/types/` with `bundler` and `nodenext` resolution. They import the package by name, so they check `dist/*.d.ts`: run `pnpm build` first. |
 | `pnpm test:site`  | Builds, installs the package into the example site in `test/site/`, and runs `test/site.test.ts`, which builds the site with VitePress.                                   |
 
 While working on one test, `pnpm exec vitest run test/dist.test.ts` runs it alone, on the `dist/` you last built.
 
-CI runs `lint`, `typecheck`, `test`, `test:site` and `publint` on Ubuntu and Windows, and `actionlint` on Ubuntu.
+CI installs Playwright's Chromium and Firefox, then runs `lint`, `typecheck`, `test`, `test:site` and `publint` on Ubuntu
+and Windows, and `actionlint` on Ubuntu.
+
+### The browser tests
+
+`test/browser/` holds the component tests. They run on the sources, not on `dist/`, in Chromium and Firefox through
+Vitest's browser mode (the `browser` project in `vitest.config.ts`), so a bare `vitest` needs Playwright's browsers
+installed. `vitepress` is aliased there to `test/browser/vitepress.ts`, a `useData` stub, since the components are
+mounted without a VitePress app. `pnpm exec vitest run --project browser` runs them alone; a failing test leaves a
+screenshot under `.vitest/`.
 
 ### The example site
 
