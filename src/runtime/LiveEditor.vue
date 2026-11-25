@@ -11,6 +11,8 @@ const props = defineProps<{
   imports: Record<string, unknown>
 }>()
 
+// The config of the last evaluation that succeeded. It is not necessarily what is drawn: when Chart.js rejects it, the
+// chart keeps the previous one and `error` says why.
 const config = shallowRef<ChartConfiguration>()
 const actions = shallowRef<ChartAction[]>()
 const error = shallowRef<Error>()
@@ -41,6 +43,11 @@ function run(code: string) {
   }
 }
 
+/** Chart.js rejected the config; the chart keeps the previous one. */
+function onChartError(e: Error) {
+  error.value = e
+}
+
 watch(() => props.code, run, { immediate: true })
 
 defineExpose({ config, actions, error, output, messages })
@@ -48,7 +55,7 @@ defineExpose({ config, actions, error, output, messages })
 
 <template>
   <div class="chart-editor">
-    <ChartView :config="config" />
+    <ChartView :config="config" @error="onChartError" />
     <pre class="chart-editor-code"><code>{{ code }}</code></pre>
   </div>
 </template>

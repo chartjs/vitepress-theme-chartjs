@@ -240,14 +240,25 @@ describe('the evaluation state', () => {
     expect(chart.data.datasets[0].data).toEqual([1, 2, 3])
   })
 
-  it('keeps the chart and shows the message when a later config has an unknown chart type', async () => {
+  // Configs that Chart.js rejects: the types are checked before the chart is touched, the scale only by Chart.js.
+  const unknownType = (data: number[]) => bar(data).replace("type: 'bar'", "type: 'nope'")
+  const unknownDatasetType = (data: number[]) => bar(data).replace("{ label: 'Votes'", "{ type: 'nope', label: 'Votes'")
+  const unknownScale = (data: number[]) =>
+    bar(data).replace('options: {', "options: { scales: { x: { type: 'nope' } },")
+  const rejected: [string, (data: number[]) => string, RegExp][] = [
+    ['an unknown chart type', unknownType, /"nope" is not a registered controller/],
+    ['an unknown dataset type', unknownDatasetType, /"nope" is not a registered controller/],
+    ['an unknown scale type', unknownScale, /"nope" is not a registered scale/],
+  ]
+
+  it.each(rejected)('keeps the chart and shows the message for a later config with %s', async (_, sample, message) => {
     const root = fixture()
     const { code, editor } = mountLive(root, bar([1, 2, 3]))
     const chart = await chartIn(root)
 
-    code.value = bar([4, 5, 6]).replace("type: 'bar'", "type: 'nope'")
+    code.value = sample([4, 5, 6])
     await nextTick()
-    expect(editor().error?.message).toMatch(/"nope" is not a registered controller/)
+    expect(editor().error?.message).toMatch(message)
     expect(chartId(chart.canvas)).toBe(chart.id)
     // The previous chart still draws, so a resize does not throw the same error again.
     expect(chart.data.datasets[0].data).toEqual([1, 2, 3])
@@ -260,17 +271,63 @@ describe('the evaluation state', () => {
     expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
   })
 
-  it('shows the message when the first config has an unknown chart type, and draws the next one', async () => {
+  it.each(rejected.slice(0, 2))('keeps a hidden dataset hidden after a config with %s', async (_, sample) => {
     const root = fixture()
-    const { code, editor } = mountLive(root, bar([1, 2, 3]).replace("type: 'bar'", "type: 'nope'"))
+    const { code, editor } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+    chart.setDatasetVisibility(0, false)
+    chart.update()
+
+    code.value = sample([4, 5, 6])
     await nextTick()
-    expect(editor().error?.message).toMatch(/"nope" is not a registered controller/)
-    expect(chartId(root.querySelector('canvas')!)).toBeUndefined()
+    expect(editor().error).toBeDefined()
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(chart.isDatasetVisible(0)).toBe(false)
+  })
+
+  it.each(rejected)(
+    'shows the message for a first config with %s, and draws the next one',
+    async (_, sample, message) => {
+      const root = fixture()
+      const { code, editor } = mountLive(root, sample([1, 2, 3]))
+      await nextTick()
+      expect(editor().error?.message).toMatch(message)
+      expect(chartId(root.querySelector('canvas')!)).toBeUndefined()
+
+      code.value = bar([4, 5, 6])
+      const chart = await chartIn(root)
+      expect(editor().error).toBeUndefined()
+      expect(chart.data.datasets[0].data).toEqual([4, 5, 6])
+    }
+  )
+
+  it('reports the error once when the chart throws again as the previous config is put back', async () => {
+    // The plugin stays with the chart, which takes `plugins` only when it is created, and throws on every update after
+    // the first draw: the update and the one that puts the previous config back.
+    const throwing = `${bar([1, 2, 3])}
+      config.plugins = [{ id: 'throws', beforeUpdate(chart) { if (chart.drawn) throw new Error('again'); chart.drawn = true } }]`
+    const root = fixture()
+    const { code, editor, errors } = mountLive(root, throwing)
+    const chart = await chartIn(root)
 
     code.value = bar([4, 5, 6])
+    await nextTick()
+    expect(editor().error?.message).toBe('again')
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(errors).toEqual([])
+  })
+
+  it('leaves the chart as it is after a later evaluation that exports no config', async () => {
+    const root = fixture()
+    const { code, editor } = mountLive(root, bar([1, 2, 3]))
     const chart = await chartIn(root)
+
+    code.value = 'module.exports = {}'
+    await nextTick()
     expect(editor().error).toBeUndefined()
-    expect(chart.data.datasets[0].data).toEqual([4, 5, 6])
+    expect(editor().config).toBeUndefined()
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(chart.data.datasets[0].data).toEqual([1, 2, 3])
   })
 
   it('reads the actions from the first evaluation that succeeds only', async () => {
