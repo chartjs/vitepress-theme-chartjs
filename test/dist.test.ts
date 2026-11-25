@@ -8,7 +8,7 @@ const root = new URL('../', import.meta.url)
 const dist = new URL('dist/', root)
 
 // Every JavaScript entry a site imports. Each piece that adds an entry appends it here.
-const entries = ['index.js']
+const entries = ['index.js', 'markdown.js']
 
 // What a browser has and Node does not; reading any of them while importing an entry throws.
 const browserGlobals = ['window', 'document', 'self', 'location', 'localStorage']
@@ -56,6 +56,14 @@ describe('dist', () => {
     expect(() =>
       execFileSync(process.execPath, ['--input-type=module', '--eval', script], { stdio: 'pipe' })
     ).not.toThrow()
+  })
+
+  // A site's configuration loads this entry in Node, before Vite and without Vue.
+  it('markdown.js imports nothing and exports chartEditor', async () => {
+    expect(read('markdown.js')).not.toMatch(/\bimport\s*[\s{*"'`(]|\bexport\s*[^;]*\bfrom\b/)
+    const markdown = await import(new URL('markdown.js', dist).href)
+    expect(Object.keys(markdown)).toEqual(['chartEditor'])
+    expect(markdown.chartEditor).toBeTypeOf('function')
   })
 
   it('imports no CSS from JavaScript', () => {
