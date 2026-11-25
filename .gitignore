@@ -3,3 +3,5 @@ node_modules
 **/.vitepress/cache
 **/.vitepress/dist
 **/.vitepress/.temp
+# Screenshots of failed browser tests.
+.vitest
