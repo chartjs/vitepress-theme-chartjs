@@ -7,7 +7,7 @@ function compiles(code: string): boolean {
   return true
 }
 
-const sample = `const hidden = 1
+const sample = `const hidden = 1 // an ordinary comment
 // <block:config:1>
 const config = { type: 'bar' }
 // </block:config>
@@ -36,7 +36,7 @@ describe('parseBlocks', () => {
     const { blocks, tabs } = parseBlocks(sample)
 
     expect(blocks.map(({ name, code }) => [name, code])).toEqual([
-      [undefined, 'const hidden = 1'],
+      [undefined, 'const hidden = 1 // an ordinary comment'],
       ['config', "const config = { type: 'bar' }"],
       ['setup', 'const data = [1, 2, 3]'],
       [undefined, 'module.exports = { config }'],
@@ -93,11 +93,11 @@ describe('parseBlocks', () => {
   })
 
   it('reads markers written as block comments', () => {
-    const { tabs } = parseBlocks('/* <block:a:1> */ a() /* </block:a> */ /* <block:b:0> */ b() /* </block:b> */')
+    const { tabs } = parseBlocks('/* <block:a:1> */ a(); /* </block:a> */ /* <block:b:0> */ b(); /* </block:b> */')
 
     expect(tabs.map(({ name, code }) => [name, code])).toEqual([
-      ['b', 'b()'],
-      ['a', 'a()'],
+      ['b', 'b();'],
+      ['a', 'a();'],
     ])
   })
 
@@ -119,7 +119,7 @@ describe('joinBlocks', () => {
     const joined = joinBlocks(parseBlocks(sample).blocks)
 
     expect(joined).toBe(
-      "const hidden = 1\nconst config = { type: 'bar' }\nconst data = [1, 2, 3]\nmodule.exports = { config }"
+      "const hidden = 1 // an ordinary comment\nconst config = { type: 'bar' }\nconst data = [1, 2, 3]\nmodule.exports = { config }"
     )
     expect(compiles(joined)).toBe(true)
   })
@@ -131,7 +131,7 @@ describe('joinBlocks', () => {
     const joined = joinBlocks(blocks)
 
     expect(joined).toBe(
-      "const hidden = 1\nconst config = { type: 'line' }\nconst data = [4, 5]\nmodule.exports = { config }"
+      "const hidden = 1 // an ordinary comment\nconst config = { type: 'line' }\nconst data = [4, 5]\nmodule.exports = { config }"
     )
     expect(() => parseBlocks(joined)).not.toThrow()
     expect(compiles(joined)).toBe(true)

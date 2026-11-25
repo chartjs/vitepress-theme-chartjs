@@ -119,6 +119,18 @@ describe('evaluate', () => {
     expect(() => evaluate('throw new TypeError("boom")', scope())).toThrow(new TypeError('boom'))
   })
 
+  it('returns nothing for a sample that replaces module.exports with null', () => {
+    expect(evaluate('module.exports = null', scope())).toEqual({
+      config: undefined,
+      actions: undefined,
+      output: undefined,
+    })
+  })
+
+  it('runs a sample that ends in a line comment', () => {
+    expect(evaluate('module.exports = { output: true } // done', scope()).output).toBe(true)
+  })
+
   it('lets a syntax error propagate', () => {
     expect(() => evaluate('const = 1', scope())).toThrow(SyntaxError)
   })

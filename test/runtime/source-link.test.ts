@@ -28,6 +28,12 @@ describe('sourceLink', () => {
     )
   })
 
+  it('treats a missing dir as empty', () => {
+    expect(sourceLink({ repo: 'chartjs/Chart.js', branch: 'master' }, 'index.md')).toBe(
+      'https://github.com/chartjs/Chart.js/blob/master/index.md'
+    )
+  })
+
   it('returns undefined without source', () => {
     expect(sourceLink(undefined, 'index.md')).toBeUndefined()
   })

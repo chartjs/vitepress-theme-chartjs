@@ -48,20 +48,21 @@
 
 ## 3. P3: Evaluator, block parser, debounce and source link
 
-- [ ] 3.1 Write `test/runtime/evaluate.test.ts`, with a stub `Chart`:
+- [x] 3.1 Write `test/runtime/evaluate.test.ts`, with a stub `Chart`:
   - an undeclared assignment throws;
   - imports are visible as locals, and a sample may shadow them;
-  - a provided name that is not an identifier, such as `my-lib`, is rejected with an error naming it;
+  - the evaluator's own `Chart` and `console` win over imported names of the same name, so an import named `console` does not stop `log` capturing;
+  - a provided name that is not an identifier, such as `my-lib`, or that strict mode cannot declare, such as `default`, `let`, `arguments` or `eval`, or `module`, is rejected with an error naming it;
   - `console.log` lines are captured and joined;
   - `module.exports` `config`, `actions` and `output` are returned, and the config is the same object;
   - a throw propagates.
 
   It fails: there is no evaluator.
-- [ ] 3.2 Write:
-  - `test/runtime/blocks.test.ts`: tabs ordered by number; a single tab without markers; hidden code kept for evaluation; a marker in a string or template ignored; a mismatched close ignored; the rejoined code still parses;
-  - `test/runtime/debounce.test.ts`, with fake timers: the call comes 500 ms after the last one, and `cancel()` stops it;
-  - `test/runtime/source-link.test.ts`: uses the file path, skips an empty `dir`, returns `undefined` without `source`.
-- [ ] 3.3 Implement `src/runtime/evaluate.ts`, `blocks.ts` (acorn, latest `ecmaVersion`, `onComment`), `debounce.ts` and `source-link.ts`, keeping zoom's logic. Add acorn as a devDependency, since it is bundled.
+- [x] 3.2 Write:
+  - `test/runtime/blocks.test.ts`: tabs ordered by number; a single tab without markers; one tab with the whole code when every named block is empty; hidden code kept for evaluation; a marker in a string or template ignored; a mismatched close ignored; tabs are the same objects as their entries in `blocks`; an edited tab rejoined by `joinBlocks` lands at its position and the code still parses, also for the single tab;
+  - `test/runtime/debounce.test.ts`, with fake timers: the call comes 500 ms after the last one, with its arguments, and `cancel()` stops it;
+  - `test/runtime/source-link.test.ts`: uses the file path, skips an empty `dir`, encodes the path's segments but not the branch, returns `undefined` without `source`, `repo` or `branch`.
+- [x] 3.3 Implement `src/runtime/evaluate.ts`, `blocks.ts` (acorn, latest `ecmaVersion`, `onComment`, `joinBlocks`), `debounce.ts` and `source-link.ts`, keeping zoom's logic. Add acorn as a devDependency, since it is bundled.
 
 ## 4. P4: Editor shell, installer, lazy runtime and a build-only example site
 
@@ -106,6 +107,7 @@
   - two editors call `imports` once;
   - `app.use(chartEditorPlugin)` with no options runs a sample using `Chart` and `console`;
   - an unknown chart type in a later evaluation keeps the previous chart and exposes the message;
+  - a later evaluation that throws keeps the same chart instance (`Chart.getChart(canvas)` unchanged) and sets the error;
   - a rejected `imports` exposes its error;
   - no iframe and no shadow root.
 
@@ -139,8 +141,8 @@
 
 - [ ] 8.1 Write `test/browser/features.test.ts`:
   - a failing edit keeps the chart, and the indicator's message is visible on hover and on keyboard focus, then clears after a good edit;
-  - output: the last 50 lines newest first, lines accumulating across edits, the string placeholder, no tab without `output`, and changing `output` keeps the reader's edits;
-  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit;
+  - output: the last 50 lines newest first, lines accumulating across edits, including the lines an edit logged before it threw, the string placeholder, no tab without `output`, and changing `output` keeps the reader's edits;
+  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit that exports different actions;
   - the source link comes from the stubbed `source` and `filePath`, opens in a new tab, and is absent without `source`.
 
   It fails.
