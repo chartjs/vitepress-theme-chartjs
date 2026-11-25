@@ -59,10 +59,10 @@
 
   It fails: there is no evaluator.
 - [x] 3.2 Write:
-  - `test/runtime/blocks.test.ts`: tabs ordered by number; a single tab without markers; one tab with the whole code when every named block is empty; hidden code kept for evaluation; a marker in a string or template ignored; a mismatched close ignored; tabs are the same objects as their entries in `blocks`; an edited tab rejoined by `joinBlocks` lands at its position and the code still parses, also for the single tab;
+  - `test/runtime/blocks.test.ts`: tabs ordered by number, an unnumbered block counting as 0; a block name with a space; a block-comment marker whose text ends in a newline; a single tab without markers; one tab with the whole code when every named block is empty; hidden code kept for evaluation; a marker in a string or template ignored; a mismatched close ignored; tabs are the same objects as their entries in `blocks`; an edited tab rejoined by `joinBlocks` lands at its position and the code still parses, also for the single tab;
   - `test/runtime/debounce.test.ts`, with fake timers: the call comes 500 ms after the last one, with its arguments, and `cancel()` stops it;
   - `test/runtime/source-link.test.ts`: uses the file path, skips an empty `dir`, encodes the path's segments but not the branch, returns `undefined` without `source`, `repo` or `branch`.
-- [x] 3.3 Implement `src/runtime/evaluate.ts`, `blocks.ts` (acorn, latest `ecmaVersion`, `onComment`, `joinBlocks`), `debounce.ts` and `source-link.ts`, keeping zoom's logic. Add acorn as a devDependency, since it is bundled.
+- [x] 3.3 Implement `src/runtime/evaluate.ts`, `blocks.ts` (acorn, latest `ecmaVersion`, `allowReturnOutsideFunction: true` because a sample runs as a function body where `return` is allowed, `onComment`, `joinBlocks`), `debounce.ts` and `source-link.ts`, keeping zoom's logic. Add acorn as a devDependency, since it is bundled.
 
 ## 4. P4: Editor shell, installer, lazy runtime and a build-only example site
 

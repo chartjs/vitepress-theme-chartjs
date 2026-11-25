@@ -47,11 +47,4 @@ describe('debounce', () => {
 
     expect(fn).not.toHaveBeenCalled()
   })
-
-  it('calls at once with no delay', () => {
-    const fn = vi.fn()
-    debounce(fn, 0)('now')
-
-    expect(fn).toHaveBeenCalledWith('now')
-  })
 })

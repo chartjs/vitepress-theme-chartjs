@@ -4,7 +4,7 @@ export interface Debounced<A extends unknown[]> {
   cancel(): void
 }
 
-/** Calls `fn` `ms` after the last call, with that call's arguments. With no delay it calls at once. */
+/** Calls `fn` `ms` after the last call, with that call's arguments. */
 export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number): Debounced<A> {
   let timeout: ReturnType<typeof setTimeout> | undefined
 
@@ -17,10 +17,6 @@ export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: numb
 
   function debounced(...args: A) {
     cancel()
-    if (!ms) {
-      fn(...args)
-      return
-    }
     timeout = setTimeout(() => {
       timeout = undefined
       fn(...args)
