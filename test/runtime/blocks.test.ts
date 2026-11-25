@@ -101,6 +101,27 @@ describe('parseBlocks', () => {
     ])
   })
 
+  it('reads a block-comment marker whose text ends in a newline', () => {
+    const { tabs } = parseBlocks('/* <block:a:0>\n*/\na()\n/* </block:a>\n*/')
+
+    expect(tabs.map(({ name, code }) => [name, code])).toEqual([['a', 'a()']])
+  })
+
+  it('gives an unnumbered block the number 0', () => {
+    const { tabs } = parseBlocks(
+      '// <block:x:1>\nx()\n// </block:x>\n// <block:y>\ny()\n// </block:y>\n// <block:z:0>\nz()\n// </block:z>'
+    )
+
+    expect(tabs.map(({ name }) => name)).toEqual(['y', 'z', 'x'])
+    expect(tabs[0].order).toBe(0)
+  })
+
+  it('reads a block name with a space', () => {
+    const { tabs } = parseBlocks('// <block:my tab:0>\na()\n// </block:my tab>')
+
+    expect(tabs.map(({ name, code }) => [name, code])).toEqual([['my tab', 'a()']])
+  })
+
   it('accepts a return at the top level, since the sample runs as a function body', () => {
     expect(() => parseBlocks('if (!Chart) return\nmodule.exports = {}')).not.toThrow()
   })

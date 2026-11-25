@@ -38,11 +38,16 @@ describe('evaluate', () => {
     expect(config).toEqual({ type: 'own', chart: 'mine' })
   })
 
-  it.each(['my-lib', '1st', '', 'a b', 'a;b'])('rejects the provided name %j, which is not an identifier', (name) => {
-    expect(() => evaluate('module.exports = {}', scope({ imports: { ok: 1, [name]: 2 } }))).toThrow(
-      `"${name}" is not usable as a name`
-    )
-  })
+  // `a=1;b` and `a=0,b` compile as `const a=1;b = 0` and `const a=0,b = 0`: only the identifier check stops them
+  // from being spliced into the generated script.
+  it.each(['my-lib', '1st', '', 'a b', 'a;b', 'a=1;b', 'a=0,b', '\u{200C}b'])(
+    'rejects the provided name %j, which is not an identifier',
+    (name) => {
+      expect(() => evaluate('module.exports = {}', scope({ imports: { ok: 1, [name]: 2 } }))).toThrow(
+        `"${name}" is not usable as a name`
+      )
+    }
+  )
 
   // A module namespace from import('./x') has `default`, so that is the realistic case.
   it.each(['default', 'class', 'let', 'yield', 'enum', 'arguments', 'eval', 'module'])(
@@ -54,13 +59,13 @@ describe('evaluate', () => {
     }
   )
 
-  it('accepts provided names that are identifiers outside ASCII', () => {
+  it('accepts provided names that are identifiers, with $, a zero-width non-joiner or letters outside ASCII', () => {
     const { config } = evaluate(
-      'module.exports = { config: { type: ñandú + $_ } }',
-      scope({ imports: { ñandú: 'a', $_: 'b' } })
+      'module.exports = { config: { type: ñandú + $_ + a$b + a\u{200C}b } }',
+      scope({ imports: { ñandú: 'a', $_: 'b', a$b: 'c', 'a\u{200C}b': 'd' } })
     )
 
-    expect(config).toEqual({ type: 'ab' })
+    expect(config).toEqual({ type: 'abcd' })
   })
 
   it('gives its own Chart and console precedence over provided names', () => {

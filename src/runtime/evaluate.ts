@@ -17,7 +17,8 @@ export interface Evaluation {
   output: boolean | string | undefined
 }
 
-const IDENTIFIER = /^[\p{ID_Start}$_][\p{ID_Continue}$‌‍]*$/u
+// ECMAScript's IdentifierName. ZWNJ and ZWJ are in ID_Continue since Unicode 15.1, and listed for older engines.
+const IDENTIFIER = /^[\p{ID_Start}$_][\p{ID_Continue}$\u{200C}\u{200D}]*$/u
 
 /**
  * Each provided name is declared as `const <name>` in strict-mode code, so it has to be an identifier that strict mode
