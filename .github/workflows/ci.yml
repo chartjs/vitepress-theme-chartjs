@@ -37,7 +37,7 @@ jobs:
         run: pnpm run lint
       - name: Type-check
         run: pnpm run typecheck
-      # Builds dist/, then runs the tests and the type fixtures on it.
+      # Builds dist/, runs the Node tests on it and the browser tests on the sources, then the type fixtures on dist/.
       - name: Test
         run: pnpm run test
       # Builds the package again, installs it into test/site with that site's lockfile, and builds the site.

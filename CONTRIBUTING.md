@@ -10,7 +10,8 @@ pnpm exec playwright install chromium firefox
 pnpm test
 ```
 
-The second line downloads the browsers that the component tests run in; it is needed once per Playwright version.
+The second line downloads the browsers that the component tests run in; it is needed once per Playwright version. On
+Linux, add `--with-deps` to it, as CI does, to also install the system libraries the browsers need.
 
 | Script            | What it does                                                                                                                                                              |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

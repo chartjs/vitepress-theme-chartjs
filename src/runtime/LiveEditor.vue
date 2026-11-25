@@ -2,6 +2,7 @@
 import { Chart, type ChartConfiguration } from 'chart.js'
 import { markRaw, shallowRef, watch } from 'vue'
 import type { ChartAction } from '../types.js'
+import { asError } from './as-error.js'
 import ChartView from './ChartView.vue'
 import { evaluate } from './evaluate.js'
 
@@ -39,7 +40,7 @@ function run(code: string) {
     // Not reactive and not frozen: Chart.js takes over the object and mutates it.
     config.value = result.config && markRaw(result.config)
   } catch (e) {
-    error.value = e instanceof Error ? e : new Error(String(e))
+    error.value = asError(e)
   }
 }
 

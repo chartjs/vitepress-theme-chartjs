@@ -133,6 +133,42 @@ describe('the chart', () => {
     expect(chart.getDatasetMeta(0).type).toBe('line')
   })
 
+  it('leaves the objects of earlier evaluations as they were exported', async () => {
+    const exported: ChartConfiguration[] = []
+    const root = fixture()
+    const { code } = mountLive(root, `${bar([1, 2, 3])}; keep(config)`, {
+      keep: (config: ChartConfiguration) => exported.push(config),
+    })
+    const chart = await chartIn(root)
+    const [first] = exported
+    const firstData = first.data
+
+    code.value = `${bar([4, 5, 6]).replace("type: 'bar'", "type: 'line'")}; keep(config)`
+    await nextTick()
+    expect(chart.data).toBe(exported[1].data)
+    // The sample, and the actions it exported, still hold the first config.
+    expect(first.type).toBe('bar')
+    expect(first.data).toBe(firstData)
+    expect(first.data.datasets[0].data).toEqual([1, 2, 3])
+  })
+
+  it.each([
+    ['no data and no options', `module.exports = { config: { type: 'bar' } }`, 0],
+    ['no options', `module.exports = { config: { type: 'bar', data: { datasets: [{ data: [1] }] } } }`, 1],
+  ])('takes a later config with %s', async (_, sample, datasets) => {
+    const root = fixture()
+    const { code, editor, errors } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+
+    code.value = sample
+    await nextTick()
+    expect(editor().error).toBeUndefined()
+    expect(errors).toEqual([])
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(chart.data.datasets).toHaveLength(datasets)
+    expect(() => chart.update()).not.toThrow()
+  })
+
   it('is destroyed on unmount', async () => {
     const root = fixture()
     const { unmount } = mountShell(root, [bar([1, 2, 3])])
@@ -280,6 +316,20 @@ describe('the evaluation state', () => {
     expect(editor().error).toBeUndefined()
     expect(chartId(chart.canvas)).toBe(chart.id)
     expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
+  })
+
+  it('puts the previous type back when Chart.js rejects a config that also changes it', async () => {
+    const root = fixture()
+    const { code, editor } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+
+    // The scale is rejected inside update(), after the type has been set.
+    code.value = unknownScale([4, 5, 6]).replace("type: 'bar'", "type: 'line'")
+    await nextTick()
+    expect(editor().error?.message).toMatch(/"nope" is not a registered scale/)
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect((chart.config as ChartConfiguration).type).toBe('bar')
+    expect(chart.getDatasetMeta(0).type).toBe('bar')
   })
 
   it.each(rejected.slice(0, 2))('keeps a hidden dataset hidden after a config with %s', async (_, sample) => {
