@@ -12,16 +12,8 @@ export default mergeConfig(
             name: 'node',
             environment: 'node',
             include: ['test/**/*.test.ts'],
+            // The example site needs the site installed; `pnpm test:site` runs it with vitest.site.config.ts.
             exclude: ['test/site.test.ts', 'test/site/**'],
-          },
-        },
-        {
-          // The example site, run by `pnpm test:site` after the package is built and installed into it.
-          extends: true,
-          test: {
-            name: 'site',
-            environment: 'node',
-            include: ['test/site.test.ts'],
           },
         },
       ],
