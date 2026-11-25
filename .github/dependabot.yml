@@ -1,0 +1,28 @@
+# The repository merges by squash and the squash commit takes the pull request
+# title, which decides the next version (and which
+# .github/workflows/pr-title.yml validates). The commit-message prefix gives
+# Dependabot pull requests a conventional title with a non-releasing type:
+#
+#   runtime dependency / action  -> "chore(deps): bump x from a to b"
+#   dev dependency               -> "chore(deps-dev): bump x from a to b"
+#
+# The package has no runtime dependencies, so no Dependabot pull request
+# changes what is published. If a bump does change the published files (a
+# bundled dev dependency, or a peer range), edit the title to "fix(deps): ..."
+# before merging so that the next release is at least a patch.
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: chore
+      include: scope
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: chore
+      include: scope

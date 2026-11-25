@@ -7,6 +7,11 @@ export const themeConfig: ChartjsThemeConfig = {
   source: { repo: 'chartjs/Chart.js', branch: 'master', dir: 'docs' },
 }
 
+// skipLibCheck (VitePress's own declarations do not check) also hides an unresolved import in our .d.ts, which
+// would turn its type into any. This and the check in the action fail unless DefaultTheme.Config and Chart are real.
+// @ts-expect-error nav is DefaultTheme.Config's
+export const wrongNav: ChartjsThemeConfig = { nav: 1, source: { repo: 'chartjs/Chart.js', branch: 'master', dir: '' } }
+
 // @ts-expect-error source is required
 export const withoutSource: ChartjsThemeConfig = { nav: [] }
 
@@ -24,6 +29,8 @@ export const action: ChartAction = {
   name: 'Randomize',
   handler(chart) {
     chart.update()
+    // @ts-expect-error the handler gets a Chart
+    chart.noSuchMethod()
   },
 }
 

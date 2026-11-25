@@ -54,7 +54,8 @@ describe('dist', () => {
   it('has no network API outside license comments', () => {
     const files = [...distFiles('.js'), ...distFiles('.css')]
     expect(files.length).toBeGreaterThan(0)
-    const network = /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|@import|url\(\s*["']?https?:/
+    const network =
+      /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|@import|url\(\s*["']?https?:/
     for (const name of files) {
       expect(withoutLicenseComments(read(name)), name).not.toMatch(network)
     }
