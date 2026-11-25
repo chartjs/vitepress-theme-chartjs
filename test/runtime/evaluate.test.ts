@@ -38,8 +38,42 @@ describe('evaluate', () => {
     expect(config).toEqual({ type: 'own', chart: 'mine' })
   })
 
-  it.each(['my-lib', 'class', '1st', ''])('rejects the provided name %j, which is not an identifier', (name) => {
-    expect(() => evaluate('module.exports = {}', scope({ imports: { ok: 1, [name]: 2 } }))).toThrow(`"${name}"`)
+  it.each(['my-lib', '1st', '', 'a b', 'a;b'])('rejects the provided name %j, which is not an identifier', (name) => {
+    expect(() => evaluate('module.exports = {}', scope({ imports: { ok: 1, [name]: 2 } }))).toThrow(
+      `"${name}" is not usable as a name`
+    )
+  })
+
+  // A module namespace from import('./x') has `default`, so that is the realistic case.
+  it.each(['default', 'class', 'let', 'yield', 'enum', 'arguments', 'eval', 'module'])(
+    'rejects the provided name %j, which strict-mode code cannot declare',
+    (name) => {
+      expect(() => evaluate('module.exports = {}', scope({ imports: { [name]: 1 } }))).toThrow(
+        `"${name}" is not usable as a name`
+      )
+    }
+  )
+
+  it('accepts provided names that are identifiers outside ASCII', () => {
+    const { config } = evaluate(
+      'module.exports = { config: { type: ñandú + $_ } }',
+      scope({ imports: { ñandú: 'a', $_: 'b' } })
+    )
+
+    expect(config).toEqual({ type: 'ab' })
+  })
+
+  it('gives its own Chart and console precedence over provided names', () => {
+    const log = vi.fn()
+    const siteConsole = { log: vi.fn() }
+    const { config } = evaluate(
+      'console.log("captured"); module.exports = { config: { chart: Chart } }',
+      scope({ log, imports: { Chart: 'site', console: siteConsole } })
+    )
+
+    expect(config).toEqual({ chart: StubChart })
+    expect(log).toHaveBeenCalledWith('captured')
+    expect(siteConsole.log).not.toHaveBeenCalled()
   })
 
   it('captures console.log lines, joining the arguments with spaces', () => {
