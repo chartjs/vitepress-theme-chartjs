@@ -10,8 +10,18 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    // The example site's files import the package by name; they are checked against its sources, so typecheck needs
+    // neither a build nor the site's install. VitePress comes from the root's node_modules even when test/site has its
+    // own install, so the program holds one VitePress and one Vue.
+    "paths": {
+      "vitepress-theme-chartjs": ["./src/index.ts"],
+      "vitepress-theme-chartjs/markdown": ["./src/markdown.ts"],
+      "vitepress": ["./node_modules/vitepress/types/index.d.ts"],
+      "vitepress/theme": ["./node_modules/vitepress/theme.d.ts"]
+    }
   },
-  "include": ["src", "test", "*.ts", "*.js"],
-  "exclude": ["test/types"]
+  // Wildcards skip dot folders, so the site's .vitepress files are named explicitly.
+  "include": ["src", "test", "test/site/.vitepress/config.ts", "test/site/.vitepress/theme/**/*.ts", "*.ts", "*.js"],
+  "exclude": ["test/types", "test/site/node_modules"]
 }
