@@ -73,14 +73,29 @@ describe('chartEditor', () => {
     expect(await renderPage(renderMarkdown(md, fence('js chart-editor', code)))).toEqual([code])
   })
 
-  it('takes over a fence with further words after the marker', async () => {
+  it.each([
+    ['further words after the marker', 'js chart-editor extra'],
+    ['another language', 'ts chart-editor'],
+    ['the marker after another word', 'js foo chart-editor'],
+    ['line highlights', 'js chart-editor {1,2}'],
+  ])('takes over a fence with %s', async (_, info) => {
     const md = await renderer(true)
-    expect(await renderPage(renderMarkdown(md, fence('js chart-editor extra', 'const a = 1\n')))).toEqual([
-      'const a = 1\n',
+    expect(await renderPage(renderMarkdown(md, fence(info, 'const a = 1\nconst b = 2\n')))).toEqual([
+      'const a = 1\nconst b = 2\n',
     ])
   })
 
-  it.each(['js', 'chart-editor', 'js chart-editors', 'ts {1}'])(
+  // The code arrives without the indentation that nesting puts in front of it.
+  it.each([
+    ['a list item', '- Item\n\n  ```js chart-editor\n  const a = `x`\n    const b = 2\n  ```\n'],
+    ['a tip container', '::: tip\n```js chart-editor\nconst a = `x`\n  const b = 2\n```\n:::\n'],
+  ])('takes over a fence inside %s', async (_, page) => {
+    const md = await renderer(true)
+    expect(await renderPage(renderMarkdown(md, page))).toEqual(['const a = `x`\n  const b = 2\n'])
+  })
+
+  // ' chart-editor' has no language: the trimmed info string does not start with a space. The marker is case-sensitive.
+  it.each(['js', 'chart-editor', ' chart-editor', 'js chart-editors', 'js Chart-Editor', 'ts {1}'])(
     'renders a %s fence as without the plugin',
     async (info) => {
       const page = `# Title\n\n${fence(info, "const a = '&amp;' // `x`\n")}`
