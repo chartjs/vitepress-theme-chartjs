@@ -17,7 +17,7 @@ pnpm test
 | `pnpm test`       | Builds, runs every Vitest test (including `test/dist.test.ts` on `dist/`), then `test:types`.                                                                             |
 | `pnpm test:types` | Type-checks the fixtures in `test/types/` with `bundler` and `nodenext` resolution. They import the package by name, so they check `dist/*.d.ts`: run `pnpm build` first. |
 
-While working on one test, `pnpm exec vitest test/dist.test.ts` runs it alone, on the `dist/` you last built.
+While working on one test, `pnpm exec vitest run test/dist.test.ts` runs it alone, on the `dist/` you last built.
 
 CI runs `lint`, `typecheck`, `test` and `publint` on Ubuntu and Windows, and `actionlint` on Ubuntu.
 
