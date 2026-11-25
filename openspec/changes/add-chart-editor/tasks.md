@@ -64,37 +64,42 @@
   - `test/runtime/source-link.test.ts`: uses the file path, skips an empty `dir`, encodes the path's segments but not the branch, returns `undefined` without `source`, `repo` or `branch`.
 - [x] 3.3 Implement `src/runtime/evaluate.ts`, `blocks.ts` (acorn, latest `ecmaVersion`, `allowReturnOutsideFunction: true` because a sample runs as a function body where `return` is allowed, `onComment`, `joinBlocks`), `debounce.ts` and `source-link.ts`, keeping zoom's logic. Add acorn as a devDependency, since it is bundled.
 
-## 4. P4: Editor shell, installer, lazy runtime and a build-only example site
+## 4a. P4a: Editor shell, installer and lazy runtime
 
-- [ ] 4.1 Write `test/ssr.test.ts` (Node, on `dist`):
+- [x] 4.1 Write `test/ssr.test.ts` (Node, on `dist`):
   - `createSSRApp` with `chartEditorPlugin` and a spy `imports`;
   - a template using the global `<ChartEditor code="globalThis.ran = true" />`, not imported;
-  - assert: the HTML has `class="chart-editor chart-editor-placeholder"`, the spy was not called, `globalThis.ran` is unset.
+  - assert: the HTML has `class="chart-editor chart-editor-placeholder"`, `aria-busy="true"` and `class="chart-view"`, the spy was not called, `globalThis.ran` is unset; the same without options.
 
   It fails.
-- [ ] 4.2 Extend `test/dist.test.ts` with the import-graph test:
-  - parse the static `import` statements of `dist/index.js` and, recursively, of every chunk it imports statically. Rolldown emits a shared `_plugin-vue_export-helper.js` chunk that `index.js` imports statically, so `index.js` alone is not the graph;
+- [x] 4.2 Extend `test/dist.test.ts` with the import-graph test:
+  - parse the static `import` statements of `dist/index.js` and, recursively, of every chunk it imports statically. Rolldown can split shared code (such as `_plugin-vue_export-helper.js`) into chunks that `index.js` imports statically, so `index.js` alone is not the graph;
   - assert that the set of bare specifiers is exactly `{vue}`;
-  - assert that the dynamically imported chunk is the only file importing `chart.js` or `vitepress`, and the only one containing acorn and Prism.
+  - assert that `index.js` loads `./runtime.js` with `import()`, and that it is the only file importing `chart.js` or `vitepress`, and the only one containing acorn and Prism.
 
-  Add `test/types/component.ts`, importing `ChartEditor` and `chartEditorPlugin` from `vitepress-theme-chartjs` and calling `app.use(chartEditorPlugin, { imports })`.
+  Load `vue` before the throwing getters in the browser-globals import test: Vue's runtime-dom tests `typeof window` when it loads. Walk the NodeNext declaration test from the declarations the exports name: the runtime's `*.vue.d.ts` are emitted too, but no public type reaches them.
 
-  The first SFC declaration fails P1's NodeNext test in `test/dist.test.ts`. vue-tsc writes `ChartEditor.vue.d.ts` and keeps `from './ChartEditor.vue'`, but NodeNext resolves `./ChartEditor.vue` only to `ChartEditor.d.vue.ts`. Make the build emit that name (a rename after vue-tsc satisfies both `bundler` and `nodenext`), so the `nodenext` fixture sees the component's real type.
-- [ ] 4.3 Write `test/site.test.ts` (build only):
+  Add `test/types/component.ts`, importing `ChartEditor` and `chartEditorPlugin` from `vitepress-theme-chartjs`, calling `app.use(chartEditorPlugin, { imports })`, and rejecting a wrong option and a wrong `code`.
+- [x] 4.4 Write `src/plugin.ts`: `chartEditorPlugin.install(app, options = {})` registers `ChartEditor` globally and provides a memoised `loadImports()`, which resolves `{}` when there is no `imports`.
+- [x] 4.5 Write `src/ChartEditor.ts`, the shell, with `defineComponent` and `h()` rather than as an SFC (D4: an exported SFC's declaration does not resolve under NodeNext): render the placeholder until mounted, then `Promise.all([import('./runtime/index.js'), loadImports()])`; ignore a load that finishes after unmount. Export the shell and the installer from `src/index.ts`. Fix the lazy chunk's file name with `chunkFileNames: '[name].js'` in `vite.config.ts`, so tests and the site can find it. The placeholder has no height of its own until P7's stylesheet gives `.chart-editor-placeholder .chart-view` one.
+- [x] 4.6 Write `src/runtime/index.ts`, `LiveEditor.vue` (zoom's `ChartEditor.vue` evaluation with the scope from the loaded imports, actions read on the first evaluation only) and `ChartView.vue` (zoom's create-on-mount and destroy). Run all tests.
+
+## 4b. P4b: A build-only example site
+
+- [ ] 4.3 Write `test/site.test.ts` (build only, in its own Vitest project `site`, outside the default `vitest run`):
   - run `vitepress build test/site` with `DEBUG=1`, so that `.vitepress/.temp` is kept;
+  - assert that the installed `test/site/node_modules/vitepress-theme-chartjs/dist/index.js` has the same bytes as the root's `dist/index.js`, so a run against a stale copy fails;
   - assert that `.vitepress/.temp/app.js`, or a server chunk, imports `vitepress-theme-chartjs`;
   - assert that the built `index.html` contains the placeholder.
 
-  Add `test/site/`:
-  - `package.json` with `vitepress-theme-chartjs: workspace:*` and `dependenciesMeta.injected: true`;
+  Add `test/site/` as its own pnpm workspace, since pnpm 12 cannot inject the workspace root into a member ("Empty path after `file:` scheme"):
+  - `package.json` with `vitepress-theme-chartjs: file:../..`, the site's own `vue`, `vitepress` and `chart.js`, and `packageManager: pnpm@12.21.0`;
+  - `pnpm-workspace.yaml` (`allowBuilds: esbuild`) and its own `pnpm-lock.yaml`;
   - `.vitepress/config.ts` with `chartEditor`;
-  - `.vitepress/theme/index.ts` with `chartEditorPlugin` and the default theme;
+  - `.vitepress/theme/index.ts` with `chartEditorPlugin` and the default theme (a bare `import 'vitepress-theme-chartjs'` would be dropped, since `sideEffects` marks the JavaScript as free of them);
   - `index.md` with one bar sample.
 
-  Add it to `pnpm-workspace.yaml`, with injected dependencies synced after build. Add `test:site` to `package.json` and to `ci.yml`.
-- [ ] 4.4 Write `src/plugin.ts`: `chartEditorPlugin.install(app, options = {})` registers `ChartEditor` globally and provides a memoised `loadImports()`, which resolves `{}` when there is no `imports`.
-- [ ] 4.5 Write `src/ChartEditor.vue`, the shell: render the placeholder until mounted, then `Promise.all([import('./runtime'), loadImports()])`; ignore a load that finishes after unmount. Export the shell and the installer from `src/index.ts`. Fix the lazy chunk's file name with `chunkFileNames` in `vite.config.ts` (Rolldown otherwise names it after its folder), so tests and the site can find it.
-- [ ] 4.6 Write `src/runtime/index.ts`, `LiveEditor.vue` (zoom's `ChartEditor.vue` evaluation with the scope from the loaded imports, actions read on the first evaluation only) and `ChartView.vue` (zoom's create-on-mount and destroy). Run all tests.
+  `pnpm build` replaces `dist`, and the site's copy is hard links to the old files, so `test:site` is `pnpm build && pnpm --dir test/site install --frozen-lockfile && vitest run --project site`. Any change to the root's `peerDependencies` or dependency ranges makes that frozen install fail with `local dependency … is outdated`; `test:site` then prints "run `pnpm --dir test/site install` and commit the site lockfile", and CONTRIBUTING.md says so. Make `.gitignore`'s `.vitepress/…` lines match at any depth. Add `test:site` to `ci.yml`, and a Dependabot entry for `/test/site`.
 
 ## 5. P5: Chart lifecycle in the browser
 
@@ -135,7 +140,7 @@
 
   Extend `test/dist.test.ts`: `./style.css` is exported, the file exists, and no JavaScript file references it. Add `test/types/style.ts`, importing `vitepress-theme-chartjs/style.css`. These fail.
 - [ ] 7.2 Port `CodeEditor.vue`: tabs from the P3 block parser, the busy indicator, and the debounce moved here from `LiveEditor.vue`. Leave out the error indicator and the source link, which come in P8.
-- [ ] 7.3 Port `editor.css` into `src/styles/editor.css`: scope every rule under `.chart-editor`, and give every `--chartjs-*` variable a fallback. Add `./style.css` to `exports`.
+- [ ] 7.3 Port `editor.css` into `src/styles/editor.css`: scope every rule under `.chart-editor`, and give every `--chartjs-*` variable a fallback. Add `./style.css` to `exports`. Give the server placeholder's `.chart-editor-placeholder .chart-view` its fixed height here (D11); until this piece it has none.
 
 ## 8. P8: Errors, output, actions and source link
 
@@ -168,8 +173,8 @@
   - the theme: `imports` loading `{Utils}` (with `Utils.Chart`) and registering a date adapter, plus the stylesheet;
   - pages: time scale, HTML legend, progress bar, hidden panels (`display: none`, `hidden`, `<details>`) and verbatim characters.
 
-  Add the site's devDependencies (the date adapter).
-- [ ] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0`.
+  Add the site's dependencies (the date adapter) to `test/site/package.json` and its own `pnpm-lock.yaml`, not to the root.
+- [ ] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0`. The site's lockfile pins its current versions, so the job installs the site unfrozen or with `pnpm.overrides` for those three, rather than with `--frozen-lockfile`.
 
 ## 10. P10: Release, first-release procedure and README
 
