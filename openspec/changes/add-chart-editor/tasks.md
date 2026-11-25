@@ -1,29 +1,30 @@
 ## 1. P1: Repository scaffold and CI
 
-- [ ] 1.1 Write `test/dist.test.ts`, run in Node on `dist`:
+- [x] 1.1 Write `test/dist.test.ts`, run in Node on `dist`:
   - import `dist/index.js` with `window` and `document` defined as throwing getters;
   - assert no `.css` import in `dist/*.js`;
   - assert no `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `importScripts`, `@import` or `url(http` outside license comments.
 
-  Write `test/types/root.ts`, importing the type `ChartjsThemeConfig` (and `ChartEditorOptions`) from `vitepress-theme-chartjs`. Both fail: there is no package yet.
-- [ ] 1.2 Add `package.json`:
+  Write `test/types/root.ts`, importing the types `ChartjsThemeConfig`, `ChartEditorOptions` and `ChartAction` from `vitepress-theme-chartjs`. Both fail: there is no package yet.
+- [x] 1.2 Add `package.json`:
   - name `vitepress-theme-chartjs`, `"private": true`, version `0.0.0-development`, `"type": "module"`, license MIT;
   - `packageManager: pnpm@12.21.0`;
   - peers `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`;
   - exports `.` and `./package.json`; `files: ["dist"]`; `sideEffects: ["*.css"]`;
-  - scripts `build`, `lint`, `typecheck`, `test`, `test:dist`;
+  - scripts `build`, `lint`, `typecheck`, `test`, `test:dist`, and `test:types` (`tsc -p test/types/tsconfig.json`, run after `build`, so the fixtures resolve the package through its exports to `dist/*.d.ts`);
   - devDependencies: vite, @vitejs/plugin-vue, vitest, vue-tsc, typescript ~6.0, eslint, typescript-eslint, eslint-plugin-vue, prettier, publint, and vitepress, vue and chart.js at current versions.
-- [ ] 1.3 Add `pnpm-workspace.yaml`, `.node-version` (26), `.editorconfig`, `.gitignore` (`dist`, `node_modules`, `.vitepress/cache`, `.vitepress/dist`, `.vitepress/.temp`), `.prettierrc` (zoom's settings) and `eslint.config.js`.
-- [ ] 1.4 Add `tsconfig.json` and `tsconfig.build.json` (declarations only, into `dist`). Add `vite.config.ts`: library mode, ES, entry `index`, externals `vue`, `vitepress`, `chart.js`, `cssFileName: 'style'`. Add `vitest.config.ts` with a `node` project.
-- [ ] 1.5 Add `src/types.ts` (`ChartjsThemeConfig`, `ChartEditorOptions`, `ChartAction`, as in the contract) and `src/index.ts` re-exporting them. Run `pnpm build && pnpm test:dist` and the type fixture; they pass.
-- [ ] 1.6 Add `.github/workflows/ci.yml`:
+- [x] 1.3 Add `pnpm-workspace.yaml`, `.node-version` (26), `.editorconfig`, `.gitignore` (`dist`, `node_modules`, `.vitepress/cache`, `.vitepress/dist`, `.vitepress/.temp`), `.prettierrc` (zoom's settings) and `eslint.config.js`.
+- [x] 1.4 Add `tsconfig.json` and `tsconfig.build.json` (declarations only, into `dist`). Add `vite.config.ts`: library mode, ES, entry `index`, externals `vue`, `vitepress`, `chart.js`, `cssFileName: 'style'`. Add `vitest.config.ts` with a `node` project.
+- [x] 1.5 Add `src/types.ts` (`ChartjsThemeConfig`, `ChartEditorOptions`, `ChartAction`, as in the contract) and `src/index.ts` re-exporting them. Run `pnpm build && pnpm test:dist` and the type fixture; they pass.
+- [x] 1.6 Add `.github/workflows/ci.yml`:
   - triggers: pull requests and pushes to `main`, on ubuntu and windows;
-  - setup: pnpm, Node 26 with cache, frozen install, Playwright browsers;
-  - steps: lint, typecheck, build, test, `test:dist`, type fixtures, publint, actionlint;
+  - setup: pnpm, Node 26 with cache, frozen install; no Playwright step, since nothing installs Playwright before the browser project (5.1 adds the step);
+  - steps, in this order: lint, typecheck, build, test, `test:dist`, `test:types`, publint, actionlint;
+  - actionlint on Linux only, since its action downloads a Linux binary;
   - `contents: read`, with actions pinned by SHA.
 
   Add zoom's `.github/workflows/pr-title.yml` and `.github/dependabot.yml` (npm and github-actions weekly, `chore` prefix with scope).
-- [ ] 1.7 Add `CONTRIBUTING.md`:
+- [x] 1.7 Add `CONTRIBUTING.md`:
   - setup (Node 26, pnpm) and scripts;
   - the public names are a contract with Chart.js;
   - only the runtime chunk may import browser-only modules or touch browser globals;
@@ -70,7 +71,7 @@
 
   It fails.
 - [ ] 4.2 Extend `test/dist.test.ts` with the import-graph test:
-  - parse the static `import` statements of `dist/index.js` and, recursively, of every chunk it imports statically;
+  - parse the static `import` statements of `dist/index.js` and, recursively, of every chunk it imports statically. Rolldown emits a shared `_plugin-vue_export-helper.js` chunk that `index.js` imports statically, so `index.js` alone is not the graph;
   - assert that the set of bare specifiers is exactly `{vue}`;
   - assert that the dynamically imported chunk is the only file importing `chart.js` or `vitepress`, and the only one containing acorn and Prism.
 
@@ -88,7 +89,7 @@
 
   Add it to `pnpm-workspace.yaml`, with injected dependencies synced after build. Add `test:site` to `package.json` and to `ci.yml`.
 - [ ] 4.4 Write `src/plugin.ts`: `chartEditorPlugin.install(app, options = {})` registers `ChartEditor` globally and provides a memoised `loadImports()`, which resolves `{}` when there is no `imports`.
-- [ ] 4.5 Write `src/ChartEditor.vue`, the shell: render the placeholder until mounted, then `Promise.all([import('./runtime'), loadImports()])`; ignore a load that finishes after unmount. Export the shell and the installer from `src/index.ts`.
+- [ ] 4.5 Write `src/ChartEditor.vue`, the shell: render the placeholder until mounted, then `Promise.all([import('./runtime'), loadImports()])`; ignore a load that finishes after unmount. Export the shell and the installer from `src/index.ts`. Fix the lazy chunk's file name with `chunkFileNames` in `vite.config.ts` (Rolldown otherwise names it after its folder), so tests and the site can find it.
 - [ ] 4.6 Write `src/runtime/index.ts`, `LiveEditor.vue` (zoom's `ChartEditor.vue` evaluation with the scope from the loaded imports, actions read on the first evaluation only) and `ChartView.vue` (zoom's create-on-mount and destroy). Run all tests.
 
 ## 5. P5: Chart lifecycle in the browser
@@ -106,6 +107,8 @@
   - no iframe and no shadow root.
 
   It fails where P4 does not yet behave this way.
+
+  Add the Playwright step to `ci.yml`, after the install: `pnpm exec playwright install --with-deps chromium firefox`.
 - [ ] 5.2 Extend `ChartView.vue` with zoom's update path, and catch errors from `new Chart` and `update()`, emitting them. Make `LiveEditor.vue` keep the previous config on error and expose the error state.
 
 ## 6. P6: Code textarea, highlighting and re-evaluation
@@ -182,7 +185,7 @@
   - then `node scripts/require-release-tag.mjs origin/main`;
   - then `pnpm exec semantic-release` (with `--dry-run` when selected);
   - no docs job.
-- [ ] 10.5 Update `package.json`: remove `private`; add `prepack: pnpm run build`, `semantic-release ^25.0.9`, `conventional-changelog-conventionalcommits ^9.3.1`, `repository`, `homepage` and `keywords`. Add `/pack` to `.gitignore`. Add zoom's Dependabot ignore rules for the majors of those two packages.
+- [ ] 10.5 Update `package.json`: remove `private`; add `prepack: pnpm run build`, `semantic-release ^25.0.9`, `conventional-changelog-conventionalcommits ^9.3.1`, `repository`, `homepage` and `keywords`. Add `/pack` to `.gitignore`. Add zoom's Dependabot ignore block to the npm entry of `.github/dependabot.yml`, for the semver-major updates of those two packages, with its comment; P1 leaves it out because the packages are not there yet.
 - [ ] 10.6 Write `MAINTAINING.md`, adapted from zoom:
   - making a release;
   - what decides the version (`fix:` patch, `feat:` minor, `!` major);
