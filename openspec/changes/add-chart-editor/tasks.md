@@ -36,15 +36,15 @@
 
 ## 2. P2: Markdown plugin
 
-- [ ] 2.1 Write `test/markdown.test.ts`:
-  - render with VitePress's `createMarkdownRenderer` plus the plugin;
-  - wrap the HTML in a page SFC as VitePress does, compile it with `@vue/compiler-sfc`, and render it with `vue/server-renderer` around a stub `ChartEditor` that prints its `code` prop as JSON;
+- [x] 2.1 Write `test/markdown.test.ts`:
+  - render with VitePress's `createMarkdownRenderer` plus the plugin. It keeps one instance per process, so call `disposeMdItInstance()` before each renderer, or a render without the plugin reuses the instance that has it;
+  - wrap the HTML in a page SFC as VitePress does, compile it with `@vue/compiler-sfc`, and render it with `vue/server-renderer` around a stub `ChartEditor` that records its `code` prop. A client-mode compile is enough: the server build's compiler-ssr uses the same compiler-core parser, which decodes the entities;
   - assert equality with the fence content for backticks, `${}`, `'` and `"`, `{{ }}`, `</script>`, `\`, `&amp;`, `&#39;`, U+2028 and emoji;
   - assert that `js`, bare `chart-editor` and `js chart-editors` fences render byte for byte as without the plugin.
 
   Add `test/types/markdown.ts`, importing `chartEditor` from `vitepress-theme-chartjs/markdown`. Both fail.
-- [ ] 2.2 Write `src/markdown.ts`: keep the previous fence rule; match `/ chart-editor( |$)/` on the trimmed info string; emit `<ChartEditor :code='…' />` with the JSON string, escaping `&` and then `'`. Import types only.
-- [ ] 2.3 Add the `markdown` entry to `vite.config.ts` and `./markdown` to `exports`. Extend `test/dist.test.ts`: `dist/markdown.js` has no import statements, loads with throwing browser globals, and exports `chartEditor`.
+- [x] 2.2 Write `src/markdown.ts`: keep the previous fence rule; match `/ chart-editor( |$)/` on the trimmed info string; emit `<ChartEditor :code='…' />` with the JSON string, escaping `&` and then `'`. Import types only.
+- [x] 2.3 Add the `markdown` entry to `vite.config.ts` and `./markdown` to `exports`. Extend `test/dist.test.ts`: `dist/markdown.js` has no import statements, loads with throwing browser globals, and exports `chartEditor`.
 
 ## 3. P3: Evaluator, block parser, debounce and source link
 
