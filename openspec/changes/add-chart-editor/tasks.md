@@ -1,25 +1,26 @@
 ## 1. P1: Repository scaffold and CI
 
 - [x] 1.1 Write `test/dist.test.ts`, run in Node on `dist`:
-  - import `dist/index.js` with `window` and `document` defined as throwing getters;
-  - assert no `.css` import in `dist/*.js`;
-  - assert no `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `importScripts`, `@import` or `url(http` outside license comments.
+  - import `dist/index.js` with `window`, `document`, `self`, `location` and `localStorage` defined as throwing getters;
+  - assert no `.css` specifier in `dist/*.js`, with or without a query such as `?inline`;
+  - assert no `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `importScripts`, `@import`, `url(` with an `http(s):` or `//` address in any case, or `import`/`from` of such an address, outside license comments;
+  - assert that every JavaScript export has a `types` condition naming an existing `.d.ts`.
 
-  Write `test/types/root.ts`, importing the types `ChartjsThemeConfig`, `ChartEditorOptions` and `ChartAction` from `vitepress-theme-chartjs`. Both fail: there is no package yet.
+  Write `test/types/root.ts`, importing the types `ChartjsThemeConfig`, `ChartEditorOptions` and `ChartAction` from `vitepress-theme-chartjs`, checked with `bundler` resolution (`test/types/tsconfig.json`) and `nodenext` resolution (`tsconfig.nodenext.json`). Both fail: there is no package yet.
 - [x] 1.2 Add `package.json`:
   - name `vitepress-theme-chartjs`, `"private": true`, version `0.0.0-development`, `"type": "module"`, license MIT;
   - `packageManager: pnpm@12.21.0`;
   - peers `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`;
   - exports `.` and `./package.json`; `files: ["dist"]`; `sideEffects: ["*.css"]`;
-  - scripts `build`, `lint`, `typecheck`, `test`, `test:dist`, and `test:types` (`tsc -p test/types/tsconfig.json`, run after `build`, so the fixtures resolve the package through its exports to `dist/*.d.ts`);
+  - scripts `build`, `lint`, `typecheck`, `test` (`pnpm build && vitest run && pnpm test:types`, so it works on a fresh clone) and `test:types` (both fixture configs; it reads `dist/*.d.ts` through the package's exports, so it needs a build);
   - devDependencies: vite, @vitejs/plugin-vue, vitest, vue-tsc, typescript ~6.0, eslint, typescript-eslint, eslint-plugin-vue, prettier, publint, and vitepress, vue and chart.js at current versions.
 - [x] 1.3 Add `pnpm-workspace.yaml`, `.node-version` (26), `.editorconfig`, `.gitignore` (`dist`, `node_modules`, `.vitepress/cache`, `.vitepress/dist`, `.vitepress/.temp`), `.prettierrc` (zoom's settings) and `eslint.config.js`.
 - [x] 1.4 Add `tsconfig.json` and `tsconfig.build.json` (declarations only, into `dist`). Add `vite.config.ts`: library mode, ES, entry `index`, externals `vue`, `vitepress`, `chart.js`, `cssFileName: 'style'`. Add `vitest.config.ts` with a `node` project.
-- [x] 1.5 Add `src/types.ts` (`ChartjsThemeConfig`, `ChartEditorOptions`, `ChartAction`, as in the contract) and `src/index.ts` re-exporting them. Run `pnpm build && pnpm test:dist` and the type fixture; they pass.
+- [x] 1.5 Add `src/types.ts` (`ChartjsThemeConfig`, `ChartEditorOptions`, `ChartAction`, as in the contract) and `src/index.ts` re-exporting them. Run `pnpm test`; the built-file tests and the type fixtures pass.
 - [x] 1.6 Add `.github/workflows/ci.yml`:
   - triggers: pull requests and pushes to `main`, on ubuntu and windows;
   - setup: pnpm, Node 26 with cache, frozen install; no Playwright step, since nothing installs Playwright before the browser project (5.1 adds the step);
-  - steps, in this order: lint, typecheck, build, test, `test:dist`, `test:types`, publint, actionlint;
+  - steps, in this order: lint, typecheck, `test` (which builds and runs the type fixtures), publint, actionlint;
   - actionlint on Linux only, since its action downloads a Linux binary;
   - `contents: read`, with actions pinned by SHA.
 
@@ -94,7 +95,7 @@
 
 ## 5. P5: Chart lifecycle in the browser
 
-- [ ] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Write `test/browser/chart.test.ts`:
+- [ ] 5.1 Add a `browser` project to `vitest.config.ts`: `@vitest/browser-playwright`, Chromium and Firefox, with `vitepress` aliased to a `useData` stub. Exclude `test/browser/**` from the `node` project, whose `test/**/*.test.ts` glob would otherwise pick the browser tests up too. Write `test/browser/chart.test.ts`:
   - the chart is created after mount from `module.exports.config`, and `chart.data` is the exported `config.data`;
   - a second evaluation updates the same instance with the new data and options;
   - unmount destroys it (`Chart.getChart(canvas)` is undefined);
@@ -181,7 +182,7 @@
   - runs only for `chartjs` on `refs/heads/main`;
   - `contents`, `issues` and `pull-requests: write`, `id-token: write`;
   - pnpm and Node 26;
-  - build, `test` and `test:site`, then `npm --version`;
+  - `test` (which builds) and `test:site`, then `npm --version`;
   - then `node scripts/require-release-tag.mjs origin/main`;
   - then `pnpm exec semantic-release` (with `--dry-run` when selected);
   - no docs job.
