@@ -6,29 +6,29 @@ You need Node 26 (see `.node-version`) and pnpm, in the version that `packageMan
 
 ```sh
 pnpm install
-pnpm build
 pnpm test
 ```
 
-| Script            | What it does                                                                                              |
-| ----------------- | --------------------------------------------------------------------------------------------------------- |
-| `pnpm build`      | Builds `dist/` with Vite's library mode and writes the type declarations with `vue-tsc`.                  |
-| `pnpm lint`       | ESLint, then Prettier's check.                                                                            |
-| `pnpm typecheck`  | Type-checks the sources, tests and configuration.                                                         |
-| `pnpm test`       | Runs every Vitest test. The tests in `test/dist.test.ts` read `dist/`, so run `pnpm build` first.         |
-| `pnpm test:dist`  | Runs only the built-file tests, on `dist/`.                                                               |
-| `pnpm test:types` | Type-checks the fixtures in `test/types/`, which import the package by name, so they check `dist/*.d.ts`. |
+| Script            | What it does                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`      | Builds `dist/` with Vite's library mode and writes the type declarations with `vue-tsc`.                                                                                  |
+| `pnpm lint`       | ESLint, then Prettier's check.                                                                                                                                            |
+| `pnpm typecheck`  | Type-checks the sources, tests and configuration.                                                                                                                         |
+| `pnpm test`       | Builds, runs every Vitest test (including `test/dist.test.ts` on `dist/`), then `test:types`.                                                                             |
+| `pnpm test:types` | Type-checks the fixtures in `test/types/` with `bundler` and `nodenext` resolution. They import the package by name, so they check `dist/*.d.ts`: run `pnpm build` first. |
 
-CI runs all of these and `publint` on Ubuntu and Windows, and `actionlint` on Ubuntu.
+While working on one test, `pnpm exec vitest test/dist.test.ts` runs it alone, on the `dist/` you last built.
+
+CI runs `lint`, `typecheck`, `test` and `publint` on Ubuntu and Windows, and `actionlint` on Ubuntu.
 
 ## Rules
 
-- **The public names are a contract with Chart.js.** The entry points, the exported names, `ChartEditorOptions` and
-  `ChartjsThemeConfig` are agreed with the Chart.js docs (see the design's Contracts). Don't rename or remove them, and
+- **The public names are a contract with Chart.js.** The entry points, the exported names, and the types
+  `ChartjsThemeConfig`, `ChartEditorOptions` and `ChartAction` are agreed with the Chart.js docs (see the design's Contracts). Don't rename or remove them, and
   add each new public name to the fixtures in `test/types/`.
 - **Only the runtime chunk may import browser-only modules or touch browser globals.** Sites render their pages in Node,
   where the package is loaded from `node_modules`. The main entry and everything it imports statically must load there
-  without `window` or `document`; `chart.js`, `vitepress`, and anything that reads the DOM are loaded lazily, after
+  without `window`, `document`, `self`, `location` or `localStorage`; `chart.js`, `vitepress`, and anything that reads the DOM are loaded lazily, after
   mount. `test/dist.test.ts` checks this.
 - **No network requests.** The package must not fetch anything, from JavaScript or CSS. `test/dist.test.ts` checks the
   built files for network APIs.
