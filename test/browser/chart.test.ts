@@ -318,6 +318,35 @@ describe('the evaluation state', () => {
     expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
   })
 
+  it('shows a thrown value that is not an Error as an Error', async () => {
+    const root = fixture()
+    const { code, editor } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+
+    code.value = "throw 'x'"
+    await nextTick()
+    expect(editor().error).toBeInstanceOf(Error)
+    expect(editor().error?.message).toBe('x')
+    expect(chartId(chart.canvas)).toBe(chart.id)
+    expect(chart.data.datasets[0].data).toEqual([1, 2, 3])
+  })
+
+  it('draws the previous config again when Chart.js rejects one inside update()', async () => {
+    const root = fixture()
+    const { code, editor } = mountLive(root, bar([1, 2, 3], 'First'))
+    const chart = await chartIn(root)
+
+    code.value = unknownScale([4, 5, 6]).replace('"Votes"', '"Second"')
+    await nextTick()
+    expect(editor().error?.message).toMatch(/"nope" is not a registered scale/)
+    // What the chart resolved and built, without updating it here: the previous options, scales and elements.
+    expect(chart.options.plugins?.title?.text).toBe('First')
+    expect(chart.options.scales?.x?.type).toBe('category')
+    expect(chart.scales.x.type).toBe('category')
+    expect(chart.getDatasetMeta(0).data).toHaveLength(3)
+    expect(() => chart.draw()).not.toThrow()
+  })
+
   it('puts the previous type back when Chart.js rejects a config that also changes it', async () => {
     const root = fixture()
     const { code, editor } = mountLive(root, bar([1, 2, 3]))

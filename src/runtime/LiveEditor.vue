@@ -37,7 +37,7 @@ function run(code: string) {
       actions.value = result.actions
       actionsRead = true
     }
-    // Not reactive and not frozen: Chart.js takes over the object and mutates it.
+    // Not reactive and not frozen: Chart.js takes over the config's `data` and `options` and mutates them.
     config.value = result.config && markRaw(result.config)
   } catch (e) {
     error.value = asError(e)
