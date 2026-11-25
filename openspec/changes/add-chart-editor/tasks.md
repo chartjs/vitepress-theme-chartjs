@@ -161,7 +161,7 @@
   - pages: time scale, HTML legend, progress bar, hidden panels (`display: none`, `hidden`, `<details>`) and verbatim characters.
 
   Add the site's devDependencies (the date adapter).
-- [ ] 9.3 Add the lowest-peers CI job if open question 9 is accepted.
+- [ ] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0`.
 
 ## 10. P10: Release, first-release procedure and README
 
