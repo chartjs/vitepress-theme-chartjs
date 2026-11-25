@@ -87,7 +87,53 @@ describe('the shell after mount', () => {
     editors.value = 2
     await vi.waitFor(() => expect(classes()).toEqual(['chart-editor chart-editor-failed', 'chart-editor']))
     expect(imports).toHaveBeenCalledTimes(2)
+
+    // Once the imports have loaded, later editors reuse them.
+    editors.value = 3
+    await vi.waitFor(() =>
+      expect(classes()).toEqual(['chart-editor chart-editor-failed', 'chart-editor', 'chart-editor'])
+    )
+    expect(imports).toHaveBeenCalledTimes(2)
     app.unmount()
+  })
+
+  it('shows a rejection that is not an Error', async () => {
+    const root = node('root')
+    const app = createApp({ render: () => h(ChartEditor, { code: '' }) })
+    app.use(chartEditorPlugin, { imports: () => Promise.reject('offline') })
+    app.mount(root)
+
+    await vi.waitFor(() => expect(root.children[0].props.class).toBe('chart-editor chart-editor-failed'))
+    expect(textOf(root.children[0])).toBe('offline')
+  })
+
+  interface Pending {
+    promise: Promise<Record<string, unknown>>
+    resolve: (imports: Record<string, unknown>) => void
+    reject: (error: unknown) => void
+  }
+
+  it.each([
+    ['resolve', (pending: Pending) => pending.resolve({})],
+    ['reject', (pending: Pending) => pending.reject(new Error('late'))],
+  ] as const)('ignores imports that %s after the page is left', async (_, settle) => {
+    const pending = {} as Pending
+    pending.promise = new Promise((resolve, reject) => Object.assign(pending, { resolve, reject }))
+    const root = node('root')
+    const errors: unknown[] = []
+    const warnings: string[] = []
+    const app = createApp({ render: () => h(ChartEditor, { code: '' }) })
+    app.config.errorHandler = (error) => void errors.push(error)
+    app.config.warnHandler = (message) => void warnings.push(message)
+    app.use(chartEditorPlugin, { imports: () => pending.promise })
+    app.mount(root)
+    app.unmount()
+
+    settle(pending)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(root.children).toEqual([])
+    expect(errors).toEqual([])
+    expect(warnings).toEqual([])
   })
 })
 

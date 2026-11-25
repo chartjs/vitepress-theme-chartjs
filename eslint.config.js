@@ -19,5 +19,10 @@ export default tseslint.config(
   {
     files: ['test/**', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Tests define the apps and stub components they mount, several to a file.
+    files: ['test/**'],
+    rules: { 'vue/one-component-per-file': 'off' },
   }
 )
