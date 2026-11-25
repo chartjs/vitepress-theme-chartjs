@@ -17,7 +17,8 @@ const error = shallowRef<Error>()
 const output = shallowRef<boolean | string>(false)
 // Newest first, the last 50, across evaluations.
 const messages = shallowRef<string[]>([])
-let evaluated = false
+// Actions come from the first evaluation that succeeds, and stay after later edits.
+let actionsRead = false
 
 function log(line: string) {
   messages.value = [line, ...messages.value].slice(0, 50)
@@ -25,14 +26,13 @@ function log(line: string) {
 
 /** Runs the code. A throw keeps the previous config, and so the chart, and sets the error. */
 function run(code: string) {
-  const first = !evaluated
-  evaluated = true
   try {
     const result = evaluate(code, { Chart, imports: props.imports, log })
     error.value = undefined
     output.value = result.output ?? false
-    if (first) {
+    if (!actionsRead) {
       actions.value = result.actions
+      actionsRead = true
     }
     // Not reactive and not frozen: Chart.js takes over the object and mutates it.
     config.value = result.config && markRaw(result.config)
