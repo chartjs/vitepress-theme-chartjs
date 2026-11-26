@@ -170,7 +170,7 @@
 
   In `test/shell.test.ts`, mock `vitepress` with the stub and check the link on the built chunk in Node. It fails.
 - [x] 8.2 Port `Tooltip.vue` as `ChartTooltip.vue` (focusable, opening on `:focus-within`), `CodeOutput.vue` and `ChartActions.vue`, with their styles.
-- [x] 8.3 Add the error indicator and the source link (through `useData` and the P3 `sourceLink`) to `CodeEditor.vue`. Make adding or removing the Output tab not re-parse the code.
+- [x] 8.3 Add the error indicator and the source link (through `useData` and the P3 `sourceLink`) to `CodeEditor.vue`. Make adding or removing the Output tab not re-parse the code. Link every tab, the code tabs and Output, to its pane: an `id` and `aria-controls` on the tab, `role="tabpanel"`, an `id` and `aria-labelledby` on the pane, the ids from `useId()`.
 
 ## 9. P9: Example site widened to the consumer's checks
 
