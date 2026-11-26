@@ -47,7 +47,7 @@ The package SHALL ship type declarations for the installer options, and for a th
 
 ### Requirement: Peers
 
-The package SHALL declare `vitepress ^1.6.0`, `vue ^3.5.0` and `chart.js ^4.0.0` as peer dependencies, and SHALL use the site's copies of them.
+The package SHALL declare `vitepress ^1.6.0`, `vue ^3.5.13` and `chart.js ^4.0.0` as peer dependencies, and SHALL use the site's copies of them.
 
 #### Scenario: Installing outside the ranges
 - **WHEN** a site installs the package alongside a peer outside these ranges

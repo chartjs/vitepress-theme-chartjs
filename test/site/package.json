@@ -4,6 +4,8 @@
   "type": "module",
   "dependencies": {
     "chart.js": "^4.6.2",
+    "chartjs-adapter-luxon": "^1.3.1",
+    "luxon": "^3.7.2",
     "vitepress": "^1.6.4",
     "vitepress-theme-chartjs": "file:../..",
     "vue": "^3.5.46"

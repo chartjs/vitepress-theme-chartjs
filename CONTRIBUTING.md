@@ -20,12 +20,15 @@ Linux, add `--with-deps` to it, as CI does, to also install the system libraries
 | `pnpm typecheck`  | Type-checks the sources, tests and configuration, the example site's included.                                                                                            |
 | `pnpm test`       | Builds, runs Vitest's `node` project (including `test/dist.test.ts` on `dist/`) and its `browser` project, then `test:types`.                                             |
 | `pnpm test:types` | Type-checks the fixtures in `test/types/` with `bundler` and `nodenext` resolution. They import the package by name, so they check `dist/*.d.ts`: run `pnpm build` first. |
-| `pnpm test:site`  | Builds, installs the package into the example site in `test/site/`, and runs `test/site.test.ts`, which builds the site with VitePress.                                   |
+| `pnpm test:site`  | Builds, installs the package into the example site in `test/site/`, and runs `test/site.test.ts`, which builds the site and drives it in Chromium in preview and in dev.  |
 
 While working on one test, `pnpm exec vitest run test/dist.test.ts` runs it alone, on the `dist/` you last built.
 
 CI installs Playwright's Chromium and Firefox, then runs `lint`, `typecheck`, `test`, `test:site` and `publint` on Ubuntu
-and Windows, and `actionlint` on Ubuntu.
+and Windows, and `actionlint` on Ubuntu. Its `lowest-peers` job, on Ubuntu, runs the example site's test on the lowest
+peers: `chart.js@4.0.1` (no 4.0.0 was published), `vitepress@1.6.0` and `vue@3.5.13`, the Vue that VitePress 1.6.0
+depends on. It adds them to the site with `pnpm --dir test/site add`, checks that they are what got installed, and runs
+`pnpm exec vitest run --config vitest.site.config.ts`, since `test:site` installs the site frozen.
 
 ### The browser tests
 
@@ -49,8 +52,20 @@ its members.) The root's `pnpm install` does not install it; `pnpm test:site` do
 with its own Vitest config, `vitest.site.config.ts`. A bare `vitest` uses `vitest.config.ts`, which leaves the site
 out, so it works without the site installed.
 
+The site is set up as Chart.js's docs are: `chart.js` is aliased to `.vitepress/chart.js`, a file of the site's own;
+`themeConfig.source` gives the source links; the theme imports the stylesheet; and `optimizeDeps.exclude` lists the
+package and the date adapter, without which the dev server would bundle a second Chart.js into them. Its imports,
+`.vitepress/chart-imports.ts`, register Chart.js's components, the date adapter and a plugin that writes, on each
+render, what `test/site.test.ts` checks (`data-renders`, `data-chart-id`, `data-width`, `data-scale-x`, `data-values`)
+onto the sample's `.chart-editor`. The pages cover a bar and a line sample with `Chart === Utils.Chart`
+(`index.md`), and `samples/` a time scale, an HTML legend, a progress bar, samples in hidden panels and code with
+characters that HTML and Vue treat specially. The test runs every page on `vitepress preview` and on `vitepress dev`,
+and fails on any Vue warning or console error.
+
 `pnpm typecheck` checks the site's `.vitepress` files against the package's sources (through `paths` in
-`tsconfig.json`) and the root's VitePress, so it needs neither a build nor the site's install.
+`tsconfig.json`) and the root's VitePress, so it needs neither a build nor the site's install. Two of them are `.js`,
+so that it does not need the site's own packages either: `chart.js` names the installed Chart.js file, and `adapter.js`
+imports the date adapter.
 
 When you change the root's `peerDependencies` or other dependency ranges, the site's frozen install fails with
 `local dependency "vitepress-theme-chartjs" at "../.." is outdated`, and `test:site` says what to do: run

@@ -10,7 +10,7 @@
 - [x] 1.2 Add `package.json`:
   - name `vitepress-theme-chartjs`, `"private": true`, version `0.0.0-development`, `"type": "module"`, license MIT;
   - `packageManager: pnpm@12.21.0`;
-  - peers `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`;
+  - peers `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0` (P9 raised Vue's to `^3.5.13`, D6);
   - exports `.` and `./package.json`; `files: ["dist"]`; `sideEffects: ["*.css"]`;
   - scripts `build`, `lint`, `typecheck`, `test` (`pnpm build && vitest run && pnpm test:types`, so it works on a fresh clone) and `test:types` (both fixture configs; it reads `dist/*.d.ts` through the package's exports, so it needs a build);
   - devDependencies: vite, @vitejs/plugin-vue, vitest, vue-tsc, typescript ~6.0, eslint, typescript-eslint, eslint-plugin-vue, prettier, publint, and vitepress, vue and chart.js at current versions.
@@ -174,8 +174,9 @@
 
 ## 9. P9: Example site widened to the consumer's checks
 
-- [ ] 9.1 Extend `test/site.test.ts`. After the build, preview the site and drive Playwright (Chromium) over every page; then repeat on `vitepress dev`. Assert:
-  - no hydration warning, and a canvas drawn per sample;
+- [x] 9.1 Extend `test/site.test.ts`. After the build, preview the site and drive Playwright (Chromium) over every page; then repeat on `vitepress dev`. Assert:
+  - a canvas drawn per sample, and no Vue warning, console error or warning, or uncaught error on any page; a hydration mismatch, which only the preview can show, is among them, with an altered page as its control;
+  - the editor is styled, and without scripts the text and the placeholder's reserved space are there (preview);
   - `Chart === Utils.Chart`;
   - the time-scale sample renders;
   - the HTML legend sample fills its markdown-written container;
@@ -183,16 +184,19 @@
   - samples in `display: none`, `hidden` and a closed `<details>` draw at size once revealed;
   - the source link's `href` is `https://github.com/{repo}/blob/{branch}/{dir}/{page}.md`;
   - an edit redraws;
-  - every request is on the site's origin.
+  - every request is on the site's origin, with a request to elsewhere as the control.
 
   It fails.
-- [ ] 9.2 Extend `test/site/`:
-  - `.vitepress/config.ts`: a `chart.js` alias to a local module re-exporting Chart.js, `optimizeDeps.exclude: ['vitepress-theme-chartjs']`, and `themeConfig.source`;
+- [x] 9.2 Extend `test/site/`:
+  - `.vitepress/config.ts`: a `chart.js` alias to a local `.js` module re-exporting the installed `dist/chart.js` (chart.js exports no `./dist/*`), `optimizeDeps.exclude: ['vitepress-theme-chartjs', 'chartjs-adapter-luxon']`, and `themeConfig.source`;
+  - `.vitepress/chart-imports.ts`: registers `registerables`, the date adapter (through a one-line `adapter.js`, so that `pnpm typecheck`, which runs before the site is installed, needs no adapter declarations) and a plugin reporting each render onto the sample's editor;
   - the theme: `imports` loading `{Utils}` (with `Utils.Chart`) and registering a date adapter, plus the stylesheet. `pnpm typecheck` checks the site's theme against the sources through `paths` in the root `tsconfig.json`, which has no entry for `vitepress-theme-chartjs/style.css` yet: map it to `./src/style.ts`, or the import fails with TS2882;
   - pages: time scale, HTML legend, progress bar, hidden panels (`display: none`, `hidden`, `<details>`) and verbatim characters.
 
-  Add the site's dependencies (the date adapter) to `test/site/package.json` and its own `pnpm-lock.yaml`, not to the root.
-- [ ] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0`. The site's lockfile pins its current versions, so the job installs the site unfrozen or with `pnpm.overrides` for those three, rather than with `--frozen-lockfile`.
+  Add the site's dependencies (`chartjs-adapter-luxon` and `luxon`) to `test/site/package.json` and its own `pnpm-lock.yaml`, not to the root.
+
+  Rename the template-ref bindings in `ChartView.vue` and `LiveEditor.vue` apart from their refs: Vue before 3.5.19 warns `Set operation on key "value" failed: target is readonly` on every mount otherwise.
+- [x] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.13` and `chart.js@4.0.1` (no 4.0.0 was published), and raise the Vue peer to `^3.5.13` (D6). The site's lockfile pins its current versions, so the job adds those three to the site, which installs it unfrozen, checks what was installed, and runs the site test itself, since `pnpm test:site` installs frozen.
 
 ## 10. P10: Release, first-release procedure and README
 

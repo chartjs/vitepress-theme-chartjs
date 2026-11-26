@@ -84,10 +84,14 @@ describe('example site', () => {
   })
 })
 
+// The servers are probed, started and reached on this host, so that `localhost` resolving to ::1 on one side and to
+// 127.0.0.1 on the other cannot get in the way.
+const host = '127.0.0.1'
+
 /** A port nothing listens on now, so that the preview and the dev server, and parallel runs, do not collide. */
 async function freePort(): Promise<number> {
   const server = createServer()
-  await new Promise<void>((resolve) => server.listen(0, resolve))
+  await new Promise<void>((resolve) => server.listen(0, host, resolve))
   const { port } = server.address() as AddressInfo
   await new Promise((resolve) => server.close(resolve))
   return port
@@ -96,12 +100,16 @@ async function freePort(): Promise<number> {
 /** Starts `vitepress <command>` on a free port, and resolves once the site answers there. */
 async function serve(command: 'preview' | 'dev'): Promise<{ origin: string; server: ChildProcess; output: string[] }> {
   const port = await freePort()
-  const args = command === 'dev' ? ['dev', '--port', String(port), '--strictPort'] : ['preview', '--port', String(port)]
+  // The preview listens on every address; the dev server is told which.
+  const args =
+    command === 'dev'
+      ? ['dev', '--host', host, '--port', String(port), '--strictPort']
+      : ['preview', '--port', String(port)]
   const server = spawn(process.execPath, [vitepress, ...args], { cwd: fileURLToPath(site), stdio: 'pipe' })
   const output: string[] = []
   server.stdout!.on('data', (chunk) => output.push(String(chunk)))
   server.stderr!.on('data', (chunk) => output.push(String(chunk)))
-  const origin = `http://localhost:${port}`
+  const origin = `http://${host}:${port}`
   const deadline = Date.now() + 60_000
   for (;;) {
     if (server.exitCode !== null) throw new Error(`vitepress ${command} exited:\n${output.join('')}`)
@@ -181,7 +189,7 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
     return page.$$eval('.chart-editor', (editors) => editors.map((editor) => ({ ...(editor as HTMLElement).dataset })))
   }
 
-  it('draws every sample of every page, links to its source, and reports no hydration mismatch', async () => {
+  it('draws every sample of every page, and links each to the page source', async () => {
     const names = pages()
     expect(names).toEqual(expect.arrayContaining(['index', 'samples/time', 'samples/legend', 'samples/progress']))
     for (const name of names.filter((name) => name !== 'samples/hidden')) {
@@ -196,8 +204,6 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
       expect(links, name).toEqual(Array(count).fill(`${source}/${name}.md`))
       await page.close()
     }
-    expect(messages.filter((message) => /hydrat/i.test(message))).toEqual([])
-    expect(errors).toEqual([])
   })
 
   it("gives samples the site's own Chart.js", async () => {
@@ -236,6 +242,9 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
 
   it('moves the progress bar written in the page while the chart animates', async () => {
     const page = await open('samples/progress')
+    // The dev server renders the page in the browser, after the load event.
+    await page.waitForSelector('#animation-progress', { state: 'attached' })
+    // Every value the bar takes, frame by frame, until the animation completes and sets it to 1.
     const values = await page.evaluate(
       () =>
         new Promise<number[]>((resolve) => {
@@ -244,12 +253,13 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
           const start = performance.now()
           const sample = () => {
             seen.add(progress.value)
-            if (performance.now() - start < 3000) requestAnimationFrame(sample)
-            else resolve([...seen])
+            if (progress.value === 1 || performance.now() - start > 20_000) resolve([...seen])
+            else requestAnimationFrame(sample)
           }
           sample()
         })
     )
+    expect(values).toContain(1)
     expect(values.filter((value) => value > 0 && value < 1).length).toBeGreaterThanOrEqual(2)
     await page.close()
   })
@@ -276,7 +286,7 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
     const shown = await page.$$eval('.chart-editor textarea', (textareas) =>
       textareas.map((textarea) => (textarea as HTMLTextAreaElement).value)
     )
-    expect(shown).toEqual(samples('samples/verbatim').map((code) => code.trimEnd()))
+    expect(shown).toEqual(samples('samples/verbatim'))
     await page.close()
   })
 
@@ -298,7 +308,14 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
     await page.close()
   })
 
-  // Last, after every page has been opened and used.
+  // After every page has been opened and used. A hydration mismatch, which only a server-rendered page can have (the
+  // preview; `vitepress dev` renders in the browser alone), is a console error too.
+  it('logs no Vue warning, console error or warning, and no uncaught error, on any page', () => {
+    expect(messages).toEqual([])
+    expect(errors).toEqual([])
+  })
+
+  // Last: the control's aborted request logs a console error of its own.
   it('makes no request outside the site, which a request to elsewhere would show', async () => {
     expect(foreign).toEqual([])
     const page = await open('index')
@@ -308,6 +325,21 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
   })
 
   if (command === 'preview') {
+    // The control of the console check above for hydration: a page whose served HTML differs from what the client
+    // renders reports it.
+    it('reports a hydration mismatch as a console error', async () => {
+      const page = await browser.newPage()
+      const logged: string[] = []
+      page.on('console', (message) => void (message.type() === 'error' && logged.push(message.text())))
+      await page.route(`${origin}/`, async (route) => {
+        const response = await route.fetch()
+        await route.fulfill({ response, body: (await response.text()).replace('<h1', '<h2').replace('</h1>', '</h2>') })
+      })
+      await page.goto(`${origin}/`)
+      await expect.poll(() => logged).toContain('Hydration completed but contains mismatches.')
+      await page.close()
+    })
+
     it('reserves the chart space and shows the text of a page without scripts', async () => {
       const page = await browser.newPage({ javaScriptEnabled: false })
       await page.goto(`${origin}/`)

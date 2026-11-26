@@ -17,6 +17,7 @@
     "paths": {
       "vitepress-theme-chartjs": ["./src/index.ts"],
       "vitepress-theme-chartjs/markdown": ["./src/markdown.ts"],
+      "vitepress-theme-chartjs/style.css": ["./src/style.ts"],
       "vitepress": ["./node_modules/vitepress/types/index.d.ts"],
       "vitepress/theme": ["./node_modules/vitepress/theme.d.ts"]
     }

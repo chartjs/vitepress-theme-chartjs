@@ -75,8 +75,8 @@ Its P8 is checked on a bar sample, a time-scale sample, the HTML legend sample a
 Console lines keep accumulating across evaluations, last 50, as in zoom (D20).
 
 The editor's tabs and indicators:
-- Carried over from zoom: a sample that exports `output` opens on its Output tab, on mount and on a new `code` prop, and one without opens on its first tab.
-- New here, chosen while building P8 and not yet confirmed by the user, whose to change it is: when an edit adds or removes the Output tab, the tab shown and the reader's edits stay, and only a shown Output tab that goes away gives way to the first tab. Zoom parsed the code again on an `output` change and reset the tab shown, losing the edits.
+- Carried over from zoom, and confirmed by the user (2026-11-26): a sample that exports `output` opens on its Output tab, on mount and on a new `code` prop, and one without opens on its first tab.
+- New here, chosen while building P8 and confirmed by the user (2026-11-26): when an edit adds or removes the Output tab, the tab shown and the reader's edits stay, and only a shown Output tab that goes away gives way to the first tab. Zoom parsed the code again on an `output` change and reset the tab shown, losing the edits.
 - While an edit waits to be evaluated, the busy indicator takes the error indicator's place; the error indicator is back once the edit has been evaluated and still fails, as in zoom.
 - Unlike zoom, the action buttons are not rendered for a sample without actions or with an empty list, whose empty row would push the editor down, and an action does nothing while there is no chart.
 - Each tab is linked to its pane (`aria-controls`, and `role="tabpanel"` with `aria-labelledby` on the pane), which zoom did not do. These ids and the error tooltip's come from Vue's `useId()`, so they are unique across the editors on a page.
@@ -124,7 +124,7 @@ TypeScript 6 checks side-effect imports (`noUncheckedSideEffectImports` is on by
 Also `"type": "module"`, `"sideEffects": ["*.css"]` and `"files": ["dist"]`. `dist/markdown.js` has no imports at all. *Alternative:* a CommonJS build as well; VitePress loads its configuration as ESM, so it is not needed.
 
 **D6. Dependencies.**
-- Peers: `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`, none optional.
+- Peers: `vitepress ^1.6.0`, `vue ^3.5.13`, `chart.js ^4.0.0`, none optional. Vue's floor is 3.5.13 (user decision, 2026-11-26), since `vitepress@1.6.0` depends on `vue ^3.5.13`: no site on `vitepress ^1.6.0` can run a lower Vue alone, and an install that asks for one gets two Vues.
 - No runtime dependencies: Prism (core plus the clike and javascript grammars) and acorn are bundled into the runtime chunk, with their MIT notices kept.
 - A site that has to exclude the package from dependency pre-bundling (D18) then needs no `include` entries for nested CommonJS packages.
 
@@ -176,14 +176,17 @@ The built-file tests check:
 
 The example site grows in two steps:
 - **From P4b**, it is built only, with one bar sample. The build runs with `DEBUG=1`, because VitePress deletes `.vitepress/.temp` after a build unless `DEBUG` is set. The test asserts that the server bundle imports `vitepress-theme-chartjs`, so the package really was external, and that the page has the placeholder.
-- **From P9**, it is also previewed and run in the dev server with `optimizeDeps.exclude`. The test asserts, in both:
-  - no hydration warning, and charts drawn;
+- **From P9**, it is also previewed and run in the dev server with `optimizeDeps.exclude` (the package and the date adapter, D18). Playwright's Chromium drives every page. The site's imports register a plugin that writes, on each render, what was drawn onto the sample's `.chart-editor`, so the test sees the charts without a global `Chart`, and a chart drawn by another Chart.js reports nothing. The test asserts, in both:
+  - charts drawn, one per sample, and no Vue warning, console error or warning, or uncaught error on any page. A hydration mismatch is such an error, which only the preview can show, since `vitepress dev` renders in the browser alone; its control serves the preview's HTML altered and expects `Hydration completed but contains mismatches.`;
   - `Chart === Utils.Chart`, with `chart.js` aliased as Chart.js does;
   - a time-scale sample, the HTML legend sample, and the progress-bar sample, whose markdown-written `<progress>` changes during the animation;
   - samples inside `display: none`, `hidden` and a closed `<details>` draw at size when revealed;
   - the source link's `href`, through the real `useData`;
   - an edit redraws;
-  - every request stays on the site's origin.
+  - every request stays on the site's origin, with a request to elsewhere as the control;
+  - the editor is styled by the stylesheet, and, without scripts, the page's text is there and the placeholder reserves the chart's space (preview).
+
+The lowest-peers job (D20) runs the same test on the site installed with `vitepress@1.6.0`, `vue@3.5.13` and `chart.js@4.0.1`.
 
 *Alternative:* jsdom for components. It has no canvas layout and no ResizeObserver, so it would prove nothing about drawing.
 
@@ -261,7 +264,7 @@ The example site grows in two steps:
 - Vite's dependency optimiser bundles whatever a pre-bundled package imports, aliased files included.
 - A site that aliases `chart.js` to its own file must therefore list this package in `optimizeDeps.exclude`. Otherwise, in dev, the editor gets a second Chart.js with nothing registered on it.
 - The README documents this, and the example site's dev-server test uses exactly that setting.
-- **Chart.js P8 must add `vitepress-theme-chartjs` to `optimizeDeps.exclude`**, next to the date adapter it already excludes for the same reason.
+- **Chart.js P8 must add `vitepress-theme-chartjs` to `optimizeDeps.exclude`**, next to the date adapter it already excludes for the same reason. The example site excludes both: with the adapter pre-bundled, the time-scale sample fails in dev and Vite reloads the page.
 - A site that resolves `chart.js` from `node_modules` needs nothing.
 
 *Alternative:* inject `Chart` through the options, which the contract rules out (Chart.js D19).
@@ -285,12 +288,18 @@ The example site grows in two steps:
 - Prism and acorn are bundled into the runtime chunk; the package has no runtime dependencies (D6).
 - The package carries only the editor's `--chartjs-*` variables with fallbacks; the site palette stays with the consumer (D9).
 - The server placeholder is an empty reserved box (D11).
-- CI runs zoom's matrix (ubuntu and windows; Chromium and Firefox for component tests) and a lowest-peers job that builds the example site against `vitepress@1.6.0`, `vue@3.5.0` and `chart.js@4.0.0` (P9).
+- CI runs zoom's matrix (ubuntu and windows; Chromium and Firefox for component tests) and a lowest-peers job that builds the example site against `vitepress@1.6.0`, `vue@3.5.13` and `chart.js@4.0.1` (P9). `chart.js@4.0.0` was never published (npm has 4.0.0-alpha and 4.0.0-release), so 4.0.1 is the lowest version `^4.0.0` selects; the peer range stays `^4.0.0`. Vue's floor is 3.5.13 (D6; user decision, 2026-11-26).
 - The README documents usage in full, written in P10.
 - Release notes only, generated by semantic-release; no `CHANGELOG.md`.
 - No coverage service.
 - Console lines keep accumulating across evaluations, newest first, last 50 (D2).
 - No license headers and no banner in `dist`; bundled MIT notices are kept.
+
+User decisions of 2026-11-26, after P8:
+- A sample that exports `output` opens on its Output tab, and the tab shown and the reader's edits are kept when `output` comes or goes (D2).
+- Each tab is linked to its pane (`aria-controls`, `role="tabpanel"`, `aria-labelledby`), and that stays (D2).
+- A failed editor, when the runtime chunk or the site's imports fail to load, shows only the error message, not the sample's code, and the package does not retry a failed load of `runtime.js`; only a rejected `imports()` is tried again. This is left as it is.
+- Vue's peer floor is `^3.5.13` (D6).
 
 **D21. The site registers Chart.js's components** (user decision, 2026-11-25). The runtime imports the tree-shakable `Chart` from `chart.js` and registers nothing on it. A sample draws only the controllers, elements, scales and plugins that the site has registered, usually in its `imports`, as zoom's `chart-imports.ts` does; without registration, a bar sample fails with `"bar" is not a registered controller.` The README says so (P10), and the browser tests register `registerables` themselves. *Alternative:* the runtime calls `Chart.register(...registerables)`, which removes tree-shaking for every site.
 
@@ -324,7 +333,7 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 | P6 | Code textarea with Prism highlighting, the Tab key and 500 ms re-evaluation of the whole code | `src/runtime/{CodeTextarea.vue,prism-flags.ts,prism.ts,prism-restore.ts,prism-core.d.ts,LiveEditor.vue}`, the textarea and token styles, `package.json` (`prismjs` and `@types/prismjs` devDependencies), `vite.config.ts` (legal comments, side-effect modules), `test/browser/{textarea,prism-isolation,prism-site}.test.ts`, `test/browser/load-runtime.ts`, `test/browser/helpers.ts` (the fixtures moved from `chart.test.ts`), `test/dist.test.ts` (Prism's notice), `test/shell.test.ts` (no Prism global in Node) | an edit updates the chart after 500 ms and not before; a new `code` prop replaces pending edits; unmount drops a pending evaluation; Tab inserts spaces over the selection, undo takes them back, Shift+Tab leaves; the focus is visible; the layers line up; markup in the code shows as text; the built chunk leaves a page `language-js` code block and a site's own `Prism` untouched. The styles land in `dist/style.css`, which only P7 exports, so until then a site gets the textarea unstyled | ~750 (about 180 of them the fixtures moved to `helpers.ts`, and about 110 the ported styles and token colours) | P5, P3 (debounce) |
 | P7 | Tabs from blocks, the busy indicator, the editor chrome and the stylesheet entry | `src/runtime/{CodeEditor.vue,LiveEditor.vue}`, `src/runtime/CodeTextarea.vue` (the `scrollable` class), `src/styles/editor.css`, `src/style.ts` (the stylesheet's declaration), `package.json` (exports `./style.css`), `test/browser/{editor,style}.test.ts`, `test/dist.test.ts`, `test/types/style.ts` | tabs in block order, with hidden code running; the busy indicator while typing; a page's `.text-muted`, `.scrollable` and `.text-error` unchanged by the stylesheet; `dist/style.css` exported, and no JavaScript references it | ~390 | P6, P3 (blocks) |
 | P8 | Error display, output tab, action buttons, source link | `src/runtime/{ChartTooltip,CodeOutput,ChartActions}.vue` (zoom's `Tooltip.vue`, renamed for ESLint's multi-word rule), `src/runtime/{CodeEditor,LiveEditor}.vue`, their styles, `src/runtime/index.ts` (its comment), `test/browser/features.test.ts`, `test/browser/style.test.ts` (the indicators' colour), `test/browser/helpers.ts` and `test/browser/{editor,textarea}.test.ts` (the shared helpers moved into `helpers.ts`), `test/shell.test.ts` (the `vitepress` mock), `CONTRIBUTING.md` | the error is kept and reachable by focus; every tab, the code tabs P7 built included, is linked to its pane (`aria-controls`, `role="tabpanel"`, `aria-labelledby`); output capped at 50, accumulating across edits (including lines a failed edit logged), with its placeholder, and edits survive an `output` change; actions are read once and stay unchanged after an edit that exports others; the link is built from the source path and hidden without `source` | ~370 | P7 |
-| P9 | Example site widened to the consumer's checks, in build and dev | `test/site/**` (aliased `chart.js`, date adapter, `optimizeDeps.exclude`, `source`; pages for time scale, HTML legend, progress bar, hidden panels, verbatim characters), `test/site.test.ts`, `test/site/package.json` and `test/site/pnpm-lock.yaml` (the site's own dependencies) | nothing proves one Chart.js in build and dev, clean hydration, the progress bar and legend samples, revealed panels, the real source link, or no foreign requests | ~360 | P8 |
+| P9 | Example site widened to the consumer's checks, in build and dev, and the lowest-peers job | `test/site/**` (aliased `chart.js`, date adapter, `optimizeDeps.exclude`, `source`, the stylesheet, the reporting plugin; pages for time scale, HTML legend, progress bar, hidden panels, verbatim characters), `test/site.test.ts`, `vitest.site.config.ts` (its timeout), `test/site/package.json` and `test/site/pnpm-lock.yaml` (the site's own dependencies), `tsconfig.json` (`paths` for `style.css`), `.github/workflows/ci.yml` (the `lowest-peers` job), `package.json` (Vue's peer floor `^3.5.13`), `src/runtime/{ChartView,LiveEditor}.vue` (template refs named apart from their bindings, which Vue before 3.5.19 warns about), `CONTRIBUTING.md` | nothing proves one Chart.js in build and dev, clean hydration, no Vue warning, the progress bar and legend samples, revealed panels, the real source link, or no foreign requests, nor that the lowest peers work | ~360 | P8 |
 | P10 | Release as in zoom; the first-release procedure; README usage | `scripts/require-release-tag.mjs`, `test/release-tag.test.ts`, `.releaserc.json`, `.github/workflows/release.yml`, `.github/dependabot.yml`, `.gitignore`, `MAINTAINING.md`, `README.md`, `package.json` (drop `private`, `prepack`, semantic-release devDependencies, repository, homepage, keywords) | the guard test (no tag, a tag on `main`, a tag off `main`); without this piece there is no way to release, and a release attempted before the first tag would be 1.0.0 | ~320 | P9; then the D16 and D17 steps by maintainers |
 
 **Order and parallel work.** P2 and P3 can be built at the same time; everything else is serial. P4 was cut in two when it reached about 500 lines: P4b follows P4a straight away, and P5 waits on P4b. `main` stays releasable throughout, because the package is `private` and no release path exists before P10. After P10 come the hand release of 0.1.0 (D16), and then Chart.js P8.
@@ -383,7 +392,7 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 - **Rendering:** in the page's document after mount, with the classes `chart-editor` and `chart-view`; a hidden sample draws correctly when shown.
 - **No network requests.**
 - **Server rendering:** neither entry touches `window` or `document` in Node; a placeholder on the server, no `imports` call, no evaluation.
-- **Peers:** `vitepress ^1.6.0`, `vue ^3.5.0`, `chart.js ^4.0.0`. Chart.js depends on `^0.1.0`.
+- **Peers:** `vitepress ^1.6.0`, `vue ^3.5.13` (raised from `^3.5.0` in P9, D6; Chart.js's design repeats the old range and must be told), `chart.js ^4.0.0`. Chart.js depends on `^0.1.0`.
 - **Addition for Chart.js P8:** add `vitepress-theme-chartjs` to `vite.optimizeDeps.exclude` (D18).
 
 Consumer usage, as the README states it:

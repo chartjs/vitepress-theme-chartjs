@@ -9,7 +9,9 @@ const props = defineProps<{ config: ChartConfiguration | undefined }>()
 // What Chart.js threw while creating or updating the chart. The previous chart stays.
 const emit = defineEmits<{ error: [error: Error] }>()
 
-const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
+// Named apart from the ref: a binding of the same name makes the compiled template set the readonly ref itself, which
+// Vue before 3.5.19 warns about on every mount.
+const canvasRef = useTemplateRef<HTMLCanvasElement>('canvas')
 let instance: Chart | undefined
 
 /**
@@ -62,10 +64,11 @@ function update(chart: Chart, config: ChartConfiguration) {
 function apply() {
   const config = props.config
   // An evaluation that exports no config leaves the chart as it is.
-  if (!canvas.value || !config) return
+  const canvas = canvasRef.value
+  if (!canvas || !config) return
   try {
     if (instance) update(instance, config)
-    else create(canvas.value, config)
+    else create(canvas, config)
   } catch (error) {
     emit('error', asError(error))
   }

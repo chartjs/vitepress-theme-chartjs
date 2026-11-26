@@ -46,11 +46,12 @@ function run(code: string) {
   }
 }
 
-const view = useTemplateRef<InstanceType<typeof ChartView>>('view')
+// Named apart from the ref, as in ChartView.vue: Vue before 3.5.19 warns otherwise.
+const viewRef = useTemplateRef<InstanceType<typeof ChartView>>('view')
 
 /** Runs an action with the chart; before there is one, such as for a sample that exports no config, it does nothing. */
 function onAction(action: ChartAction) {
-  const chart = view.value?.chart()
+  const chart = viewRef.value?.chart()
   if (chart) action.handler(chart)
 }
 
