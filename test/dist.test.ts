@@ -75,6 +75,23 @@ describe('dist', () => {
     }
   })
 
+  // A site imports the stylesheet itself, as vitepress-theme-chartjs/style.css; nothing loads it for the site.
+  it('exports style.css, and no JavaScript refers to it', () => {
+    const { exports } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
+    expect(exports['./style.css']).toBe('./dist/style.css')
+    expect(existsSync(new URL('style.css', dist))).toBe(true)
+    for (const name of distFiles('.js')) {
+      expect(read(name), name).not.toMatch(/style\.css/)
+    }
+  })
+
+  // A site may set any of the variables, and needs none of them.
+  it('gives every --chartjs-* variable a fallback', () => {
+    const css = read('style.css')
+    expect(css).toMatch(/var\(\s*--chartjs-/)
+    expect(css).not.toMatch(/var\(\s*--chartjs-[\w-]+\s*\)/)
+  })
+
   // Bundled code keeps its license notice (D6); the minifier drops it unless told to keep legal comments.
   it("keeps Prism's license notice in the runtime chunk", () => {
     expect(read('runtime.js')).toMatch(/Prism: Lightweight, robust, elegant syntax highlighting\s*\*\s*\* @license MIT/)
