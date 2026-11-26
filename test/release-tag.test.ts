@@ -65,6 +65,13 @@ describe('require-release-tag', () => {
     expect(result.status).toBe(0)
   })
 
+  it('passes with a version tag whose parts have several digits', () => {
+    git('tag', 'v0.10.12')
+    const result = guard('main')
+    expect(result.stderr).toBe('')
+    expect(result.status).toBe(0)
+  })
+
   it('fails when the only version tag is on a side branch not merged into main', () => {
     git('switch', '--quiet', '--create', 'side')
     commit('feat: on the side')
@@ -108,6 +115,9 @@ describe('require-release-tag', () => {
     git('tag', 'vnext')
     git('tag', 'v1-beta')
     git('tag', 'v0.1')
+    // A prerelease, which semantic-release does not count on main, and a fourth part.
+    git('tag', 'v1.0.0-beta.1')
+    git('tag', 'v1.2.3.4')
     const result = guard('main')
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('MAINTAINING.md')
