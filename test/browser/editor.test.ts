@@ -24,9 +24,18 @@ const hidden = 'setup'
 module.exports = { config }
 `
 
+/** The tabs, found by their roles as assistive technology finds them. */
 function tabsIn(root: Element): HTMLButtonElement[] {
-  return [...root.querySelectorAll<HTMLButtonElement>('.code-editor-tab')]
+  return [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')]
 }
+
+/** The colour of each tab's underline: the selected one has it, the others are transparent. */
+function underlines(root: Element): string[] {
+  return tabsIn(root).map((tab) => getComputedStyle(tab).borderBottomColor)
+}
+
+const underlined = 'rgb(48, 128, 208)'
+const plain = 'rgba(0, 0, 0, 0)'
 
 function textareasIn(root: Element): HTMLTextAreaElement[] {
   return [...root.querySelectorAll('textarea')]
@@ -75,11 +84,13 @@ describe('the code editor', () => {
     const root = fixture()
     mountLive(root, blocks([1, 2, 3]))
     await chartIn(root)
+    expect(underlines(root)).toEqual([underlined, plain])
 
     tabsIn(root)[1].click()
     await nextTick()
     expect(shownTextarea(root).value).toMatch(/^const config = \{/)
     expect(tabsIn(root).map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true'])
+    expect(underlines(root)).toEqual([plain, underlined])
     // Hidden by the attribute, which needs no stylesheet.
     expect([...root.querySelectorAll('.code-textarea')].map((pane) => pane.hasAttribute('hidden'))).toEqual([
       true,

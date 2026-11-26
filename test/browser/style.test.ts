@@ -87,4 +87,19 @@ describe('dist/style.css', () => {
     addStyle()
     expect(view.clientHeight).toBe(240)
   })
+
+  // The shell's markup when the runtime chunk or the site's imports fail to load.
+  it.each([
+    ['the fallback colour', '', 'rgb(224, 80, 37)'],
+    ["the site's --chartjs-danger", 'style="--chartjs-danger: rgb(1, 2, 3)"', 'rgb(1, 2, 3)'],
+  ])('marks a failed editor in %s', (_, attributes, colour) => {
+    const page = fixture(
+      `<div ${attributes}><div class="chart-editor chart-editor-failed" role="alert"><p class="chart-editor-failure">no adapter</p></div></div>`
+    )
+    addStyle()
+    const box = getComputedStyle(page.querySelector('.chart-editor-failed')!)
+    expect([box.borderLeftStyle, box.borderLeftWidth, box.borderLeftColor]).toEqual(['solid', '4px', colour])
+    expect(box.paddingLeft).toBe('16px')
+    expect(getComputedStyle(page.querySelector('.chart-editor-failure')!).color).toBe(colour)
+  })
 })

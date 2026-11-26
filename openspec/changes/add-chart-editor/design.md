@@ -352,7 +352,7 @@ Sizes are hand-written changed lines, counting moved code and tests; lockfiles a
 - **P6 to P7:** `CodeTextarea` takes `value` and emits `input`, and `LiveEditor` re-evaluates through the P3 debounce, 500 ms after the last input. A new `code` prop cancels the pending evaluation, replaces the edited text and is evaluated at once; unmount cancels the pending evaluation. P7 moves the debounce into `CodeEditor`, around the tabs, and keeps these rules. Code that `parseBlocks` cannot parse is shown whole in one `JS` tab, so that the reader can fix it, and the evaluation reports the syntax error; edits are not parsed again, so that tab stays until the next `code` prop.
 - **P7 to P8:**
   - `CodeEditor` takes `error`, `messages` and `output` props and has places for the error indicator and the source link;
-  - styles go in SFC `<style>` blocks or in `src/styles/editor.css`, all scoped under `.chart-editor`, and all of them end up in `dist/style.css`;
+  - styles go in SFC `<style>` blocks or in `src/styles/editor.css`, each scoped under `.chart-editor` or by Vue's scoped styles, and all of them end up in `dist/style.css`;
   - the inactive tabs carry the `hidden` attribute, not `v-show`, so they stay hidden without the stylesheet (and `test/shell.test.ts`'s in-memory renderer has no `style`); no rule of the package sets `display` on a tab's pane.
 - **P9 to P10:** `pnpm test` builds and covers the unit, built-file and browser tests and the type fixtures, and `pnpm test:site` the example site in build and dev. The release workflow runs both.
 
