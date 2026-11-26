@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Chart, type ChartConfiguration } from 'chart.js'
-import { markRaw, shallowRef, watch } from 'vue'
+import { markRaw, shallowRef, useTemplateRef, watch } from 'vue'
 import type { ChartAction } from '../types.js'
 import { asError } from './as-error.js'
+import ChartActions from './ChartActions.vue'
 import ChartView from './ChartView.vue'
 import CodeEditor from './CodeEditor.vue'
 import { evaluate } from './evaluate.js'
@@ -45,6 +46,14 @@ function run(code: string) {
   }
 }
 
+const view = useTemplateRef<InstanceType<typeof ChartView>>('view')
+
+/** Runs an action with the chart; before there is one, such as for a sample that exports no config, it does nothing. */
+function onAction(action: ChartAction) {
+  const chart = view.value?.chart()
+  if (chart) action.handler(chart)
+}
+
 /** Chart.js rejected the config; the chart keeps the previous one. */
 function onChartError(e: Error) {
   error.value = e
@@ -59,7 +68,9 @@ defineExpose({ config, actions, error, output, messages })
 
 <template>
   <div class="chart-editor">
-    <ChartView :config="config" @error="onChartError" />
+    <ChartView ref="view" :config="config" @error="onChartError" />
+    <!-- Only with actions: an empty row would push the code down. -->
+    <ChartActions v-if="actions?.length" :actions="actions" @action="onAction" />
     <CodeEditor :error="error" :messages="messages" :output="output" :value="code" @input="run" />
   </div>
 </template>

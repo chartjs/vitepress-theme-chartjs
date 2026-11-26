@@ -37,6 +37,9 @@ screenshot under `.vitest/`. Two of them, `prism-isolation.test.ts` and `prism-s
 `dist/runtime.js` instead, since the bundle decides the order in which Prism, its flags and the restore load: they need
 `pnpm build` first, and check the `dist/` you last built.
 
+`test/shell.test.ts` mounts the built `dist/runtime.js` in Node, where `vitepress` is VitePress's Node API and has no
+`useData`; it mocks `vitepress` with the same stub (`vi.mock`), as any Node test that mounts the editor must.
+
 ### The example site
 
 `test/site/` is a VitePress site that uses the package as a site would. It is a pnpm workspace of its own, with its own

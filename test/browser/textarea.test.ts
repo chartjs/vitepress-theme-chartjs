@@ -3,7 +3,7 @@
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { server, userEvent } from 'vitest/browser'
-import { bar, chartId, chartIn, fixture, mountLive } from './helpers.js'
+import { bar, chartId, chartIn, fixture, mountLive, type, wait } from './helpers.js'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -18,18 +18,6 @@ function textareaIn(root: Element): HTMLTextAreaElement {
 /** The highlighted layer under the textarea. */
 function layerIn(root: Element): HTMLElement {
   return root.querySelector<HTMLElement>('pre.code-layer')!
-}
-
-/** Types `value` as the reader would, in one input event. */
-function type(textarea: HTMLTextAreaElement, value: string) {
-  textarea.value = value
-  textarea.dispatchEvent(new Event('input', { bubbles: true }))
-}
-
-/** Lets `ms` pass on the faked timers, then lets Vue render what they changed. */
-async function wait(ms: number) {
-  vi.advanceTimersByTime(ms)
-  await nextTick()
 }
 
 describe('the code textarea', () => {

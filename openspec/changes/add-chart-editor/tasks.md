@@ -162,15 +162,15 @@
 
 ## 8. P8: Errors, output, actions and source link
 
-- [ ] 8.1 Write `test/browser/features.test.ts`:
-  - a failing edit keeps the chart, and the indicator's message is visible on hover and on keyboard focus, then clears after a good edit;
-  - output: the last 50 lines newest first, lines accumulating across edits, including the lines an edit logged before it threw, the string placeholder, no tab without `output`, and changing `output` keeps the reader's edits;
-  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit that exports different actions, and buttons from the first successful edit when the first run throws;
+- [x] 8.1 Write `test/browser/features.test.ts`:
+  - a failing edit keeps the chart, and the indicator's message is visible on hover and on keyboard focus, then clears after a good edit; two failing editors in one app each describe their own tooltip;
+  - output: the last 50 lines newest first, lines accumulating across edits, including the lines an edit logged before it threw, the string placeholder, no tab without `output`, and changing `output` keeps the reader's edits; a sample with `output` opens on its Output tab, and a shown Output tab that goes away gives way to the first tab;
+  - actions: buttons in order, the handler receives the chart, buttons unchanged after an edit that exports different actions, and buttons from the first successful edit when the first run throws; nothing rendered without actions, and nothing run before there is a chart;
   - the source link comes from the stubbed `source` and `filePath`, opens in a new tab, and is absent without `source`.
 
-  It fails.
-- [ ] 8.2 Port `Tooltip.vue` (focusable, opening on `:focus-within`), `CodeOutput.vue` and `ChartActions.vue`, with their styles.
-- [ ] 8.3 Add the error indicator and the source link (through `useData` and the P3 `sourceLink`) to `CodeEditor.vue`. Make adding or removing the Output tab not re-parse the code.
+  In `test/shell.test.ts`, mock `vitepress` with the stub and check the link on the built chunk in Node. It fails.
+- [x] 8.2 Port `Tooltip.vue` as `ChartTooltip.vue` (focusable, opening on `:focus-within`), `CodeOutput.vue` and `ChartActions.vue`, with their styles.
+- [x] 8.3 Add the error indicator and the source link (through `useData` and the P3 `sourceLink`) to `CodeEditor.vue`. Make adding or removing the Output tab not re-parse the code. Link every tab, the code tabs and Output, to its pane: an `id` and `aria-controls` on the tab, `role="tabpanel"`, an `id` and `aria-labelledby` on the pane, the ids from `useId()`.
 
 ## 9. P9: Example site widened to the consumer's checks
 
