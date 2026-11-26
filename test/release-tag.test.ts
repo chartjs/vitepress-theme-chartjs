@@ -1,6 +1,7 @@
-// The release workflow's guard: semantic-release takes the last release from the `v*` tags reachable from the release
-// branch, and with none it would release 1.0.0. The guard refuses to go on until a `v*` tag is reachable from the ref it
-// is given. Each test builds a repository of its own in a temporary folder and runs the script there.
+// The release workflow's guard: semantic-release takes the last release from the version tags (such as v0.1.0)
+// reachable from the release branch, and with none it would release 1.0.0. The guard refuses to go on until a version
+// tag is reachable from the ref it is given, whatever is checked out. Each test builds a repository of its own in a
+// temporary folder and runs the script there.
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -64,7 +65,7 @@ describe('require-release-tag', () => {
     expect(result.status).toBe(0)
   })
 
-  it('fails when the only v* tag is on a side branch not merged into main', () => {
+  it('fails when the only version tag is on a side branch not merged into main', () => {
     git('switch', '--quiet', '--create', 'side')
     commit('feat: on the side')
     git('tag', 'v0.1.0')
@@ -75,8 +76,38 @@ describe('require-release-tag', () => {
     expect(result.stderr).toContain('MAINTAINING.md')
   })
 
-  it('fails when the tags on main are not v* tags', () => {
+  it('checks the ref it is given, not what is checked out: the tag is on HEAD, not on main', () => {
+    git('switch', '--quiet', '--create', 'side')
+    commit('feat: on the side')
+    git('tag', 'v0.1.0')
+    const result = guard('main')
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('MAINTAINING.md')
+  })
+
+  it('checks the ref it is given, not what is checked out: the tag is on main, not on the ref', () => {
+    git('branch', 'side')
+    git('switch', '--quiet', 'side')
+    commit('feat: on the side')
+    git('switch', '--quiet', 'main')
+    commit('fix: on main')
+    git('tag', 'v0.1.0')
+    const result = guard('side')
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('MAINTAINING.md')
+  })
+
+  it('fails when the tags on main do not start with v', () => {
     git('tag', 'release-0.1.0')
+    const result = guard('main')
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('MAINTAINING.md')
+  })
+
+  it('fails when the v tags on main are not versions', () => {
+    git('tag', 'vnext')
+    git('tag', 'v1-beta')
+    git('tag', 'v0.1')
     const result = guard('main')
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('MAINTAINING.md')

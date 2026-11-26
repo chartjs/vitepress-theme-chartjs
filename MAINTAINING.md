@@ -48,8 +48,9 @@ URL to refer to an issue the commit does not close.
 The `Release` workflow:
 
 1. runs the build and every test: `pnpm test` and `pnpm test:site`;
-1. checks that a `v*` tag is reachable from `main` (`scripts/require-release-tag.mjs`), and stops if not: without one,
-   semantic-release would release 1.0.0 (see [The first release](#the-first-release));
+1. checks that a version tag, `v<major>.<minor>.<patch>` such as `v0.1.0`, is reachable from `main`
+   (`scripts/require-release-tag.mjs`), and stops if not: without one, semantic-release would release 1.0.0 (see
+   [The first release](#the-first-release)). Tags such as `vnext` or `v1-beta` do not count;
 1. when the commits since the last tag call for a release, pushes the `v{version}` tag;
 1. publishes the package to [npm](https://www.npmjs.com/package/vitepress-theme-chartjs) with provenance, through npm
    trusted publishing (OIDC): there is no npm token to maintain;
@@ -82,7 +83,7 @@ far it got:
 ### The first release
 
 The first version, 0.1.0, is published by hand by a chartjs npm maintainer. semantic-release takes the last release from
-the `v*` tags reachable from `main`, and with none its first run would release 1.0.0; the workflow refuses to run until
+the version tags (`v<major>.<minor>.<patch>`) reachable from `main`, and with none its first run would release 1.0.0; the workflow refuses to run until
 the tag is there. From `v0.1.0`, a `fix:` releases 0.1.1, a `feat:` 0.2.0 and a `feat!:` 1.0.0.
 
 1. On a `main` commit that contains the release workflow, set the version without committing it, then build, pack and

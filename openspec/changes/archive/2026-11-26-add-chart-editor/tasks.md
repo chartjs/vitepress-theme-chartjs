@@ -203,12 +203,13 @@
 - [x] 10.1 Write `test/release-tag.test.ts` (Node). Create a temporary git repository with a `main` branch and run `node scripts/require-release-tag.mjs main`. Assert that it:
   - fails with no tag;
   - passes with `v0.1.0` on a `main` commit;
-  - fails when the only `v*` tag is on a side-branch commit not merged into `main`;
-  - fails when the only tag on `main` is not a `v*` tag;
+  - fails when the only version tag is on a side-branch commit not merged into `main`;
+  - checks the ref it is given, not `HEAD`: fails with the tag on the checked-out side branch and `main` as the ref, and with the tag on the checked-out `main` and the side branch as the ref;
+  - fails when the only tags on `main` are not version tags: `release-0.1.0`, and `vnext`, `v1-beta` and `v0.1`;
   - fails with its usage when no ref is given.
 
   It fails: there is no script.
-- [x] 10.2 Write `scripts/require-release-tag.mjs <ref>`: it exits 1, with a message pointing to MAINTAINING.md, when `git tag --merged <ref> --list 'v*'` is empty.
+- [x] 10.2 Write `scripts/require-release-tag.mjs <ref>`: it exits 1, with a message pointing to MAINTAINING.md, when `git tag --merged <ref> --list 'v*'` lists no tag matching `^v\d+\.\d+\.\d+$`.
 - [x] 10.3 Add `.releaserc.json`, copied from zoom: branch `main`, the `conventionalcommits` preset for the analyser and the notes, `@semantic-release/npm` with `tarballDir: "pack"`, `@semantic-release/github` with assets `pack/*.tgz`.
 - [x] 10.4 Add `.github/workflows/release.yml`, copied from zoom's `release` job:
   - `workflow_dispatch` with `dry-run`, `concurrency: release`;

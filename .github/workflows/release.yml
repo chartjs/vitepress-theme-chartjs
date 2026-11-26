@@ -55,9 +55,11 @@ jobs:
       - name: Test example site
         run: pnpm run test:site
       # npm trusted publishing needs npm >= 11.5.1; Node 26 ships it.
-      - run: npm --version
-      # With no v* tag reachable from main, semantic-release would release
-      # 1.0.0. The first release, 0.1.0, is published by hand.
+      - name: Show npm's version
+        run: npm --version
+      # With no version tag (v<major>.<minor>.<patch>, such as v0.1.0)
+      # reachable from main, semantic-release would release 1.0.0. The first
+      # release, 0.1.0, is published by hand.
       - name: Require a release tag
         run: node scripts/require-release-tag.mjs origin/main
       # Writes the version into package.json, packs (prepack builds), tags,
