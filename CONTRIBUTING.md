@@ -33,7 +33,9 @@ and Windows, and `actionlint` on Ubuntu.
 Vitest's browser mode (the `browser` project in `vitest.config.ts`), so a bare `vitest` needs Playwright's browsers
 installed. `vitepress` is aliased there to `test/browser/vitepress.ts`, a `useData` stub, since the components are
 mounted without a VitePress app. `pnpm exec vitest run --project browser` runs them alone; a failing test leaves a
-screenshot under `.vitest/`.
+screenshot under `.vitest/`. One of them, `prism-isolation.test.ts`, loads the built `dist/runtime.js` instead, since
+the bundle decides the order in which Prism and its flags load: it needs `pnpm build` first, and checks the `dist/` you
+last built.
 
 ### The example site
 

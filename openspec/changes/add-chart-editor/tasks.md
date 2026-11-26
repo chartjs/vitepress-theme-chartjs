@@ -134,13 +134,15 @@
 
 ## 6. P6: Code textarea, highlighting and re-evaluation
 
-- [ ] 6.1 Write `test/browser/textarea.test.ts`:
+- [x] 6.1 Write `test/browser/textarea.test.ts`:
   - typing does not evaluate before 500 ms and updates the same chart after 500 ms;
+  - a new `code` prop replaces pending edits and is evaluated at once, and unmount drops a pending evaluation;
+  - markup in the code, such as `<img onerror>` or `</code><script>` in a string, shows as text and creates no element;
   - Tab inserts two spaces and focus stays.
 
-  Write `test/browser/prism-isolation.test.ts`, which imports the built runtime chunk from `dist` into a page that has `<div class="language-js"><pre><code><span class="x">a</span></code></pre></div>`, and asserts the markup is unchanged one animation frame later. Both fail.
-- [ ] 6.2 Write `src/runtime/prism-flags.ts`, which sets `globalThis.Prism = { manual: true, disableWorkerMessageHandler: true }`. Write `src/runtime/prism.ts`, which imports `./prism-flags` first and then Prism's core, clike and javascript grammars.
-- [ ] 6.3 Port `CodeTextarea.vue` (zoom's, using `prism.ts`) with its styles and the token colours. Wire one textarea holding the whole code into `LiveEditor.vue`, re-evaluating through the P3 debounce.
+  These fail until the textarea exists. Write `test/browser/prism-isolation.test.ts`, which imports the built runtime chunk from `dist` into a page that has `<div class="language-js"><pre><code><span class="x">a</span></code></pre></div>`, and asserts the markup is unchanged one animation frame later. It passes until Prism is in the chunk, so it is proven by mutation, each on a fresh build: the flags import removed, the flags imported after the core, and the full `prismjs` bundle.
+- [x] 6.2 Write `src/runtime/prism-flags.ts`, which sets `globalThis.Prism = { manual: true, disableWorkerMessageHandler: true }`. Write `src/runtime/prism.ts`, which imports `./prism-flags` first and then Prism's core, clike and javascript grammars.
+- [x] 6.3 Port `CodeTextarea.vue` (zoom's, using `prism.ts`) with its styles and the token colours. Wire one textarea holding the whole code into `LiveEditor.vue`, re-evaluating through the P3 debounce.
 
 ## 7. P7: Tabs, busy indicator and stylesheet entry
 

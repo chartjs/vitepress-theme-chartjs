@@ -29,6 +29,7 @@ function onTab(event: KeyboardEvent) {
 <template>
   <div class="code-textarea">
     <div class="code-textarea-content">
+      <!-- eslint-disable-next-line vue/no-v-html -- Prism escapes the code; textarea.test.ts checks markup shows as text -->
       <pre aria-hidden="true" class="code-layer"><code v-html="highlighted" /></pre>
       <textarea
         :value="value"

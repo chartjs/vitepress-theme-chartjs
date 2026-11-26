@@ -65,6 +65,23 @@ describe('the code textarea', () => {
     expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
   })
 
+  it('replaces pending edits with a new code prop, evaluated at once', async () => {
+    const root = fixture()
+    const { code } = mountLive(root, bar([1, 2, 3]))
+    const chart = await chartIn(root)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const textarea = textareaIn(root)
+
+    type(textarea, bar([4, 5, 6]))
+    code.value = bar([7, 8, 9])
+    await nextTick()
+    expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
+    expect(textarea.value).toBe(bar([7, 8, 9]))
+
+    await wait(500)
+    expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
+  })
+
   it('drops the pending evaluation when the editor is unmounted', async () => {
     const ran = vi.fn()
     const root = fixture()
