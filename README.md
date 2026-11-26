@@ -59,8 +59,23 @@ export default {
 `imports` option is optional: it loads the names the samples see beside `Chart`, and is called once, in the browser
 only, before the first sample runs. Each name must be usable as a `const` in strict-mode code.
 
-Without the stylesheet the editor still works, unstyled. The styles are scoped under `.chart-editor`, and its colours
-are `--chartjs-*` custom properties with fallbacks, which a site can set.
+Without the stylesheet the editor still works, unstyled. The styles are scoped under `.chart-editor`. Its colours and
+corners come from these custom properties, each with a fallback, so a site can set any of them, for example on `:root`
+or `.chart-editor`:
+
+| Property                         | Fallback                  | Used for                                                               |
+| -------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `--chartjs-code-bg`              | `#282c34`                 | the code and output panel's background                                 |
+| `--chartjs-code-text`            | `#e0e0e0`                 | the code, the tabs, the header's links, the logged lines and the caret |
+| `--chartjs-accent-soft`          | `rgba(48, 128, 208, .15)` | an action button's background on hover                                 |
+| `--chartjs-accent-border`        | `rgba(48, 128, 208, .2)`  | an action button's border on hover                                     |
+| `--chartjs-accent-strong`        | `rgba(48, 128, 208, .3)`  | an action button's background while pressed                            |
+| `--chartjs-accent-border-strong` | `rgba(48, 128, 208, .4)`  | an action button's border while pressed                                |
+| `--chartjs-focus-ring`           | `#61afef`                 | the focus outline of the code, the tabs, the buttons and the tooltip   |
+| `--chartjs-danger`               | `#e05025`                 | the error message, and the border of an editor that failed to load     |
+| `--chartjs-radius`               | `6px`                     | the corners of the panel, the buttons and the tooltip                  |
+
+The action buttons' resting colours and the fonts come from VitePress's own `--vp-*` variables.
 
 ### Register what the samples draw
 
