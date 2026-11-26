@@ -2,6 +2,7 @@
 // busy indicator while an edit waits to be evaluated.
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import {
   bar,
   chartIn,
@@ -111,6 +112,26 @@ describe('the code editor', () => {
       .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
       .filter((rule) => rule.style.scrollbarWidth === 'thin')
     expect(thin.some((rule) => pane.matches(rule.selectorText))).toBe(true)
+  })
+
+  // `overscroll-behavior: contain` on the pane kept the page still in Chromium; Playwright's Firefox scrolled it anyway.
+  it('lets the page scroll once the wheel reaches the end of the code', async () => {
+    const root = fixture()
+    // A page taller than the viewport, so that it can scroll below the editor.
+    fixture(`<div style="height: ${2 * window.innerHeight}px"></div>`)
+    mountLive(root, `${'// a line\n'.repeat(100)}${bar([1, 2, 3])}`)
+    await chartIn(root)
+    const pane = root.querySelector<HTMLElement>('.code-textarea')!
+    expect(pane.scrollHeight).toBeGreaterThan(pane.clientHeight)
+    window.scrollTo(0, 0)
+    // At its end before the wheel turns: Firefox gives a whole wheel gesture to the box it starts on while that box
+    // can still scroll, and would not reach the page in one gesture whatever the CSS.
+    pane.scrollTop = pane.scrollHeight
+    const end = pane.scrollTop
+
+    await userEvent.wheel(pane, { delta: { y: 200 }, times: 5 })
+    await vi.waitFor(() => expect(window.scrollY).toBeGreaterThan(0))
+    expect(pane.scrollTop).toBe(end)
   })
 
   it('shows code that does not parse in one tab, so the reader can fix it', async () => {
