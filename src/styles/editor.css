@@ -1,0 +1,60 @@
+/*
+ * The editor's shared classes, the server placeholder and the failure box. CodeEditor.vue loads this file with
+ * `<style src>`, so it ends up in dist/style.css with the components' scoped styles. Every rule is scoped under
+ * .chart-editor, so a page's own .scrollable, .text-muted or .text-error keep their look, and every --chartjs-*
+ * variable has a fallback, so a site may set any of them and needs none.
+ */
+
+/* The panes scroll with the browser's own scrollbars, thin and light on the dark code background. */
+.chart-editor .scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  overscroll-behavior: contain;
+}
+
+/* For browsers without scrollbar-width and scrollbar-color, such as Safari before 18.2. */
+.chart-editor .scrollable::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+.chart-editor .scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chart-editor .scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+.chart-editor .scrollable:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.chart-editor .text-muted {
+  opacity: 0.5 !important;
+}
+
+.chart-editor .text-error {
+  color: var(--chartjs-danger, #e05025) !important;
+}
+
+/*
+ * The server placeholder reserves the chart's space until the editor replaces it after mount. Chart.js draws bar and
+ * line charts at an aspect ratio of 2 by default; a chart with another ratio still moves the page when it appears.
+ */
+.chart-editor.chart-editor-placeholder .chart-view {
+  aspect-ratio: 2;
+}
+
+.chart-editor.chart-editor-failed {
+  border-left: 4px solid var(--chartjs-danger, #e05025);
+  padding: 8px 16px;
+}
+
+.chart-editor.chart-editor-failed .chart-editor-failure {
+  color: var(--chartjs-danger, #e05025);
+  margin: 0;
+}

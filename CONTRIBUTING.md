@@ -66,7 +66,11 @@ When you change the root's `peerDependencies` or other dependency ranges, the si
   `test/dist.test.ts` checks this.
 - **No network requests.** The package must not fetch anything, from JavaScript or CSS. `test/dist.test.ts` checks the
   built files for network APIs.
-- **The JavaScript imports no CSS.** Styles end up in `dist/style.css`, which the site imports itself.
+- **The JavaScript imports no CSS.** Styles end up in `dist/style.css`, which the site imports itself as
+  `vitepress-theme-chartjs/style.css`. They go in an SFC's `<style>` block or in `src/styles/editor.css`, which
+  `CodeEditor.vue` loads with `<style src>`; a CSS import in TypeScript fails the type check (TS2882). Every selector is
+  scoped under `.chart-editor` or by Vue's scoped styles, and every `--chartjs-*` variable has a fallback;
+  `test/browser/style.test.ts` and `test/dist.test.ts` check both.
 - **A module of the runtime chunk imported only for its side effects is named in `vite.config.ts`.** Add a new one to
   the `sideEffectModules` pattern there, which today matches `prism-flags.ts` and `prism-restore.ts`; otherwise the
   build drops it, since `package.json` says only the CSS has side effects.

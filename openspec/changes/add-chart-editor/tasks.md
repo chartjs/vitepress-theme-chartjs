@@ -150,14 +150,15 @@
 
 ## 7. P7: Tabs, busy indicator and stylesheet entry
 
-- [ ] 7.1 Write `test/browser/editor.test.ts`:
+- [x] 7.1 Write `test/browser/editor.test.ts`:
   - tabs appear in block order, and hidden code runs;
-  - the busy indicator shows while typing and disappears after evaluation;
-  - with `dist/style.css` loaded, page elements outside the editor with `.text-muted`, `.scrollable` and `.text-error` have the same computed style as without it.
+  - the busy indicator shows while typing and disappears after evaluation.
 
-  Extend `test/dist.test.ts`: `./style.css` is exported, the file exists, and no JavaScript file references it. Add `test/types/style.ts`, importing `vitepress-theme-chartjs/style.css`. These fail.
-- [ ] 7.2 Port `CodeEditor.vue`: tabs from the P3 block parser, the busy indicator, and the debounce moved here from `LiveEditor.vue`. Leave out the error indicator and the source link, which come in P8.
-- [ ] 7.3 Port `editor.css` into `src/styles/editor.css`: scope every rule under `.chart-editor`, and give every `--chartjs-*` variable a fallback. Add `./style.css` to `exports`. Give the server placeholder's `.chart-editor-placeholder .chart-view` its fixed height here (D11); until this piece it has none.
+  Write `test/browser/style.test.ts`: with `dist/style.css` loaded, page elements outside the editor with `.text-muted`, `.scrollable` and `.text-error` have the same computed style as without it, every rule is scoped, and the placeholder reserves the chart's height. It is a file of its own that imports nothing from the source, since Vite adds the source's styles to the page of any test that mounts the editor, and "without it" would already have them.
+
+  Extend `test/dist.test.ts`: `./style.css` is exported with its declaration, the file exists, and no JavaScript file references it. Add `test/types/style.ts`, importing `vitepress-theme-chartjs/style.css`. These fail.
+- [x] 7.2 Port `CodeEditor.vue`: tabs from the P3 block parser, the busy indicator, and the debounce moved here from `LiveEditor.vue`. Leave out the error indicator and the source link, which come in P8.
+- [x] 7.3 Port `editor.css` into `src/styles/editor.css`, loaded by `<style src>` in `CodeEditor.vue`: scope every rule under `.chart-editor`, and give every `--chartjs-*` variable a fallback. Add `./style.css` to `exports`, with `src/style.ts` as its declaration (D5). Give the server placeholder's `.chart-editor.chart-editor-placeholder .chart-view` its height here (D11); until this piece it has none.
 
 ## 8. P8: Errors, output, actions and source link
 
@@ -187,7 +188,7 @@
   It fails.
 - [ ] 9.2 Extend `test/site/`:
   - `.vitepress/config.ts`: a `chart.js` alias to a local module re-exporting Chart.js, `optimizeDeps.exclude: ['vitepress-theme-chartjs']`, and `themeConfig.source`;
-  - the theme: `imports` loading `{Utils}` (with `Utils.Chart`) and registering a date adapter, plus the stylesheet;
+  - the theme: `imports` loading `{Utils}` (with `Utils.Chart`) and registering a date adapter, plus the stylesheet. `pnpm typecheck` checks the site's theme against the sources through `paths` in the root `tsconfig.json`, which has no entry for `vitepress-theme-chartjs/style.css` yet: map it to `./src/style.ts`, or the import fails with TS2882;
   - pages: time scale, HTML legend, progress bar, hidden panels (`display: none`, `hidden`, `<details>`) and verbatim characters.
 
   Add the site's dependencies (the date adapter) to `test/site/package.json` and its own `pnpm-lock.yaml`, not to the root.

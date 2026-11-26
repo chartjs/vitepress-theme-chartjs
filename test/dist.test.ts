@@ -75,6 +75,25 @@ describe('dist', () => {
     }
   })
 
+  // A site imports the stylesheet itself, as vitepress-theme-chartjs/style.css; nothing loads it for the site.
+  it('exports style.css, and no JavaScript refers to it', () => {
+    const { exports } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
+    expect(exports['./style.css']).toEqual({ types: './dist/style.d.ts', default: './dist/style.css' })
+    expect(existsSync(new URL('style.css', dist))).toBe(true)
+    // Its declaration comes from src/style.ts, which nothing builds as JavaScript.
+    expect(existsSync(new URL('style.js', dist))).toBe(false)
+    for (const name of distFiles('.js')) {
+      expect(read(name), name).not.toMatch(/style\.css/)
+    }
+  })
+
+  // A site may set any of the variables, and needs none of them.
+  it('gives every --chartjs-* variable a fallback', () => {
+    const css = read('style.css')
+    expect(css).toMatch(/var\(\s*--chartjs-/)
+    expect(css).not.toMatch(/var\(\s*--chartjs-[\w-]+\s*\)/)
+  })
+
   // Bundled code keeps its license notice (D6); the minifier drops it unless told to keep legal comments.
   it("keeps Prism's license notice in the runtime chunk", () => {
     expect(read('runtime.js')).toMatch(/Prism: Lightweight, robust, elegant syntax highlighting\s*\*\s*\* @license MIT/)
@@ -92,12 +111,13 @@ describe('dist', () => {
   })
 
   // Without a `types` condition TypeScript falls back to the .d.ts beside the JavaScript, so the type fixtures
-  // cannot notice a missing one; this test does.
-  it('names the declarations of every JavaScript export', () => {
+  // cannot notice a missing one; this test does. The stylesheet's declaration, style.d.ts, lets TypeScript 6 resolve its
+  // side-effect import.
+  it('names the declarations of every export but package.json', () => {
     const { exports } = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
     for (const [path, target] of Object.entries<string | Record<string, string>>(exports)) {
       if (typeof target === 'string') continue
-      expect(target.types, path).toBe(target.default.replace(/\.js$/, '.d.ts'))
+      expect(target.types, path).toBe(target.default.replace(/\.(?:js|css)$/, '.d.ts'))
       expect(existsSync(new URL(target.types, root)), target.types).toBe(true)
     }
   })
