@@ -1,10 +1,11 @@
 // What the editor shows beside the code, on the source: the error indicator, the Output tab, the action buttons and
 // the source link.
 import { Chart } from 'chart.js'
-import { nextTick } from 'vue'
+import { h, nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
-import { bar, chartId, chartIn, fixture, mountLive } from './helpers.js'
+import { LiveEditor } from '../../src/runtime/index.js'
+import { bar, chartId, chartIn, fixture, mount, mountLive } from './helpers.js'
 import { page, theme } from './vitepress.js'
 
 afterEach(() => {
@@ -80,6 +81,23 @@ describe('the error indicator', () => {
     button.focus()
     expect(document.activeElement).toBe(button)
     await vi.waitFor(() => expect(tooltip.checkVisibility()).toBe(true))
+  })
+
+  it('gives each of two failing editors on a page its own tooltip', async () => {
+    const root = fixture()
+    // One app, as on a site: Vue's ids are unique within an app.
+    mount(root, {
+      render: () => [
+        h(LiveEditor, { code: 'throw new Error("first")', imports: {} }),
+        h(LiveEditor, { code: 'throw new Error("second")', imports: {} }),
+      ],
+    })
+    await nextTick()
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('button[aria-label="Error"]')]
+    expect(buttons).toHaveLength(2)
+    const ids = buttons.map((button) => button.getAttribute('aria-describedby'))
+    expect(new Set(ids).size).toBe(2)
+    expect(buttons.map((button) => tooltipOf(button).textContent?.trim())).toEqual(['Error: first', 'Error: second'])
   })
 
   it('shows the message of a config Chart.js rejects', async () => {
@@ -175,6 +193,51 @@ describe('the Output tab', () => {
     expect(tabsIn(root)[0].getAttribute('aria-selected')).toBe('true')
     expect(shownTextarea(root).value).toBe(without)
   })
+
+  const selected = (root: Element) => tabsIn(root).map((tab) => tab.getAttribute('aria-selected') === 'true')
+
+  it('opens on the Output tab of a sample that exports output, also after a new code prop', async () => {
+    const root = fixture()
+    const { code } = mountLive(root, logging('a', 1))
+    await chartIn(root)
+    expect(selected(root)).toEqual([false, true])
+    expect(root.querySelector('.code-output')?.checkVisibility()).toBe(true)
+
+    code.value = bar([1, 2, 3])
+    await nextTick()
+    expect(tabNames(root)).toEqual(['JS'])
+    expect(selected(root)).toEqual([true])
+
+    code.value = logging('b', 1)
+    await nextTick()
+    expect(selected(root)).toEqual([false, true])
+  })
+
+  it('keeps the code tab shown when an edit adds or removes the Output tab', async () => {
+    const setup = (output: boolean) => `const values = [1, 2, 3]\nconst output = ${output}`
+    const sample = `
+// <block:setup:0>
+${setup(false)}
+// </block:setup>
+// <block:config:1>
+const config = { type: 'bar', data: { labels: ['a', 'b', 'c'], datasets: [{ data: values }] }, options: { animation: false } }
+// </block:config>
+module.exports = { config, output }`
+    const root = fixture()
+    mountLive(root, sample)
+    await chartIn(root)
+    tabsIn(root)[1].click()
+    await nextTick()
+
+    // Each edit goes into the first tab, while the second one is shown.
+    await edit(root, setup(true))
+    expect(tabNames(root)).toEqual(['setup', 'config', 'Output'])
+    expect(selected(root)).toEqual([false, true, false])
+    await edit(root, setup(false))
+    expect(tabNames(root)).toEqual(['setup', 'config'])
+    expect(selected(root)).toEqual([false, true])
+    expect(root.querySelector('textarea')!.value).toBe(setup(false))
+  })
 })
 
 describe('the action buttons', () => {
@@ -189,8 +252,29 @@ describe('the action buttons', () => {
     }))`
 
   function buttonsIn(root: Element): HTMLButtonElement[] {
-    return [...root.querySelectorAll<HTMLButtonElement>('.chart-actions button')]
+    return [...root.querySelectorAll<HTMLButtonElement>('[role="group"][aria-label="Actions"] button')]
   }
+
+  it('renders nothing for a sample without actions', async () => {
+    const root = fixture()
+    mountLive(root, bar([1, 2, 3]))
+    await chartIn(root)
+    expect(root.querySelector('.chart-actions, [role="group"]')).toBeNull()
+    // The code editor follows the chart directly.
+    expect(root.querySelector('.chart-view')?.nextElementSibling?.matches('.code-editor')).toBe(true)
+  })
+
+  it('does nothing before there is a chart', async () => {
+    const pressed = vi.fn()
+    const root = fixture()
+    const { errors } = mountLive(root, `module.exports = { actions: [{ name: 'Press', handler: pressed }] }`, {
+      pressed,
+    })
+    await nextTick()
+    buttonsIn(root)[0].click()
+    expect(pressed).not.toHaveBeenCalled()
+    expect(errors).toEqual([])
+  })
 
   it('shows one button per action, in order, and runs the handler with the chart', async () => {
     const pressed = vi.fn()
