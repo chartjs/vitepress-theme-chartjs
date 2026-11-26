@@ -33,9 +33,9 @@ and Windows, and `actionlint` on Ubuntu.
 Vitest's browser mode (the `browser` project in `vitest.config.ts`), so a bare `vitest` needs Playwright's browsers
 installed. `vitepress` is aliased there to `test/browser/vitepress.ts`, a `useData` stub, since the components are
 mounted without a VitePress app. `pnpm exec vitest run --project browser` runs them alone; a failing test leaves a
-screenshot under `.vitest/`. One of them, `prism-isolation.test.ts`, loads the built `dist/runtime.js` instead, since
-the bundle decides the order in which Prism and its flags load: it needs `pnpm build` first, and checks the `dist/` you
-last built.
+screenshot under `.vitest/`. Two of them, `prism-isolation.test.ts` and `prism-site.test.ts`, load the built `dist/runtime.js` instead, since
+the bundle decides the order in which Prism, its flags and the restore load: they need `pnpm build` first, and check the
+`dist/` you last built.
 
 ### The example site
 
@@ -67,6 +67,8 @@ When you change the root's `peerDependencies` or other dependency ranges, the si
 - **No network requests.** The package must not fetch anything, from JavaScript or CSS. `test/dist.test.ts` checks the
   built files for network APIs.
 - **The JavaScript imports no CSS.** Styles end up in `dist/style.css`, which the site imports itself.
+- **A module of the runtime chunk imported only for its side effects is named in `vite.config.ts`'s
+  `sideEffectModules`**, or the build drops it, since `package.json` says only the CSS has side effects.
 
 ## Pull requests
 
