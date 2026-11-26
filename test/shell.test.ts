@@ -2,6 +2,11 @@
 // for the DOM, so onMounted runs and the shell's failure branch renders. Drawing a chart needs a browser (P5).
 import { createRenderer, h, nextTick, ref, type RendererOptions } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import { page, theme } from './browser/vitepress.js'
+
+// In Node, `vitepress` is VitePress's Node API, which has no `useData`; a site's client build gets VitePress's client.
+// The runtime chunk imports it, so the tests that mount the built LiveEditor get the browser tests' stub.
+vi.mock('vitepress', () => import('./browser/vitepress.js'))
 
 const { ChartEditor, chartEditorPlugin } = (await import(
   new URL('../dist/index.js', import.meta.url).href
@@ -170,5 +175,24 @@ describe('LiveEditor', () => {
     expect(editor.value?.messages).toEqual(['ran'])
     expect(editor.value?.actions?.map((a) => a.name)).toEqual(['Randomize'])
     app.unmount()
+  })
+
+  it("links to the page's source through VitePress's useData", async () => {
+    const { LiveEditor } = (await import(
+      new URL('../dist/runtime.js', import.meta.url).href
+    )) as typeof import('../src/runtime/index.js')
+    theme.value = { source: { repo: 'chartjs/Chart.js', branch: 'master', dir: 'docs' } }
+    page.value = { filePath: 'index.md' }
+    try {
+      const root = node('root')
+      const app = createApp({ render: () => h(LiveEditor, { code: '', imports: {} }) })
+      app.mount(root)
+      const find = (n: Node): Node | undefined => (n.tag === 'a' ? n : n.children.map(find).find(Boolean))
+      expect(find(root)?.props.href).toBe('https://github.com/chartjs/Chart.js/blob/master/docs/index.md')
+      app.unmount()
+    } finally {
+      theme.value = {}
+      page.value = { filePath: '' }
+    }
   })
 })

@@ -88,6 +88,19 @@ describe('dist/style.css', () => {
     expect(view.clientHeight).toBe(240)
   })
 
+  // The error indicator is .text-error, the busy indicator .text-muted.
+  it.each([
+    ['the fallback colour', '', 'rgb(224, 80, 37)'],
+    ["the site's --chartjs-danger", 'style="--chartjs-danger: rgb(1, 2, 3)"', 'rgb(1, 2, 3)'],
+  ])('colours the error indicator in %s, and dims the busy one', (_, attributes, colour) => {
+    const page = fixture(
+      `<div ${attributes}><div class="chart-editor"><span class="text-error">!</span><span class="text-muted">…</span></div></div>`
+    )
+    addStyle()
+    expect(getComputedStyle(page.querySelector('.text-error')!).color).toBe(colour)
+    expect(getComputedStyle(page.querySelector('.text-muted')!).opacity).toBe('0.5')
+  })
+
   // The shell's markup when the runtime chunk or the site's imports fail to load.
   it.each([
     ['the fallback colour', '', 'rgb(224, 80, 37)'],
