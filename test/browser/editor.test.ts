@@ -2,7 +2,19 @@
 // busy indicator while an edit waits to be evaluated.
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bar, chartIn, fixture, mountLive } from './helpers.js'
+import {
+  bar,
+  chartIn,
+  fixture,
+  mountLive,
+  plain,
+  shownTextarea,
+  tabsIn,
+  type,
+  underlined,
+  underlines,
+  wait,
+} from './helpers.js'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -24,44 +36,12 @@ const hidden = 'setup'
 module.exports = { config }
 `
 
-/** The tabs, found by their roles as assistive technology finds them. */
-function tabsIn(root: Element): HTMLButtonElement[] {
-  return [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')]
-}
-
-/** The colour of each tab's underline: the selected one has it, the others are transparent. */
-function underlines(root: Element): string[] {
-  return tabsIn(root).map((tab) => getComputedStyle(tab).borderBottomColor)
-}
-
-const underlined = 'rgb(48, 128, 208)'
-const plain = 'rgba(0, 0, 0, 0)'
-
 function textareasIn(root: Element): HTMLTextAreaElement[] {
   return [...root.querySelectorAll('textarea')]
 }
 
-/** The one textarea shown. */
-function shownTextarea(root: Element): HTMLTextAreaElement {
-  const shown = textareasIn(root).filter((textarea) => textarea.checkVisibility())
-  expect(shown).toHaveLength(1)
-  return shown[0]
-}
-
 function busyIn(root: Element): Element | null {
   return root.querySelector('[role="status"][aria-label="Evaluating"]')
-}
-
-/** Types `value` as the reader would, in one input event. */
-function type(textarea: HTMLTextAreaElement, value: string) {
-  textarea.value = value
-  textarea.dispatchEvent(new Event('input', { bubbles: true }))
-}
-
-/** Lets `ms` pass on the faked timers, then lets Vue render what they changed. */
-async function wait(ms: number) {
-  vi.advanceTimersByTime(ms)
-  await nextTick()
 }
 
 describe('the code editor', () => {

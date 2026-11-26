@@ -5,7 +5,20 @@ import { h, nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { LiveEditor } from '../../src/runtime/index.js'
-import { bar, chartId, chartIn, fixture, mount, mountLive } from './helpers.js'
+import {
+  bar,
+  chartId,
+  chartIn,
+  fixture,
+  mount,
+  mountLive,
+  plain,
+  shownTextarea,
+  tabsIn,
+  type,
+  underlined,
+  underlines,
+} from './helpers.js'
 import { page, theme } from './vitepress.js'
 
 afterEach(() => {
@@ -14,25 +27,8 @@ afterEach(() => {
   theme.value = {}
 })
 
-function tabsIn(root: Element): HTMLButtonElement[] {
-  return [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')]
-}
-
 function tabNames(root: Element): string[] {
   return tabsIn(root).map((tab) => tab.textContent!.trim())
-}
-
-/** The one textarea shown. */
-function shownTextarea(root: Element): HTMLTextAreaElement {
-  const shown = [...root.querySelectorAll('textarea')].filter((textarea) => textarea.checkVisibility())
-  expect(shown).toHaveLength(1)
-  return shown[0]
-}
-
-/** Types `value` as the reader would, in one input event. */
-function type(textarea: HTMLTextAreaElement, value: string) {
-  textarea.value = value
-  textarea.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 /** Types `value` into the first tab, shown or not, and lets the 500 ms pass, so that the edit is evaluated. */
@@ -110,6 +106,25 @@ describe('the error indicator', () => {
     expect(tooltipOf(errorButton(root)!).textContent).toMatch(/"nope" is not a registered controller/)
   })
 
+  it('gives way to the busy indicator while an edit waits', async () => {
+    const root = fixture()
+    mountLive(root, bar([1, 2, 3]))
+    await chartIn(root)
+    await edit(root, 'throw new Error("first")')
+    expect(errorButton(root)).not.toBeNull()
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    type(root.querySelector('textarea')!, 'throw new Error("second")')
+    await nextTick()
+    expect(errorButton(root)).toBeNull()
+    expect(root.querySelector('[role="status"]')).not.toBeNull()
+
+    vi.advanceTimersByTime(500)
+    await nextTick()
+    expect(root.querySelector('[role="status"]')).toBeNull()
+    expect(tooltipOf(errorButton(root)!).textContent).toContain('second')
+  })
+
   it('disappears after an edit that succeeds', async () => {
     const root = fixture()
     mountLive(root, bar([1, 2, 3]))
@@ -163,6 +178,21 @@ describe('the Output tab', () => {
     ])
   })
 
+  it('shows ... for an output of true while nothing is logged', async () => {
+    const root = fixture()
+    mountLive(root, `${bar([1])}\nmodule.exports.output = true`)
+    await chartIn(root)
+    expect(root.querySelector('.code-output')?.textContent?.trim()).toBe('...')
+  })
+
+  it('drops the placeholder once a line is logged', async () => {
+    const root = fixture()
+    mountLive(root, `console.log('clicked'); ${bar([1])}\nmodule.exports.output = 'Click a bar'`)
+    await chartIn(root)
+    expect(outputLines(root)).toEqual(['clicked'])
+    expect(root.querySelector('.code-output-placeholder')).toBeNull()
+  })
+
   it('shows a string output as the placeholder while nothing is logged', async () => {
     const root = fixture()
     mountLive(root, `${bar([1])}\nmodule.exports.output = 'Click a bar'`)
@@ -201,7 +231,15 @@ describe('the Output tab', () => {
     const { code } = mountLive(root, logging('a', 1))
     await chartIn(root)
     expect(selected(root)).toEqual([false, true])
+    expect(underlines(root)).toEqual([plain, underlined])
     expect(root.querySelector('.code-output')?.checkVisibility()).toBe(true)
+    expect(root.querySelector('textarea')?.checkVisibility()).toBe(false)
+
+    tabsIn(root)[0].click()
+    await nextTick()
+    expect(underlines(root)).toEqual([underlined, plain])
+    expect(root.querySelector('.code-output')?.checkVisibility()).toBe(false)
+    expect(shownTextarea(root)).toBe(root.querySelector('textarea'))
 
     code.value = bar([1, 2, 3])
     await nextTick()
@@ -254,6 +292,13 @@ describe('the action buttons', () => {
   function buttonsIn(root: Element): HTMLButtonElement[] {
     return [...root.querySelectorAll<HTMLButtonElement>('[role="group"][aria-label="Actions"] button')]
   }
+
+  it('renders nothing for an empty list of actions', async () => {
+    const root = fixture()
+    mountLive(root, `${bar([1, 2, 3])}\nmodule.exports.actions = []`)
+    await chartIn(root)
+    expect(root.querySelector('.chart-actions, [role="group"]')).toBeNull()
+  })
 
   it('renders nothing for a sample without actions', async () => {
     const root = fixture()
@@ -351,5 +396,44 @@ describe('the source link', () => {
     expect(linkIn(root)).toBeNull()
     expect(root.querySelector('a')).toBeNull()
     expect(chart.data.datasets[0].data).toEqual([1, 2, 3])
+  })
+})
+
+describe('tabs and panes', () => {
+  it('links each tab to the pane it shows, and back, in each of two editors on a page', async () => {
+    const sample = `
+// <block:setup:0>
+const values = [1, 2, 3]
+// </block:setup>
+// <block:config:1>
+const config = { type: 'bar', data: { labels: ['a', 'b', 'c'], datasets: [{ data: values }] } }
+// </block:config>
+module.exports = { config, output: true }`
+    const root = fixture()
+    // One app, as on a site: Vue's ids are unique within an app.
+    mount(root, {
+      render: () => [h(LiveEditor, { code: sample, imports: {} }), h(LiveEditor, { code: sample, imports: {} })],
+    })
+    await nextTick()
+
+    const tabs = tabsIn(root)
+    expect(tabs.map((tab) => tab.textContent!.trim())).toEqual([
+      'setup',
+      'config',
+      'Output',
+      'setup',
+      'config',
+      'Output',
+    ])
+    const ids = new Set<string>()
+    for (const tab of tabs) {
+      const panel = document.getElementById(tab.getAttribute('aria-controls') ?? '')
+      expect(panel?.getAttribute('role'), tab.id).toBe('tabpanel')
+      expect(panel!.getAttribute('aria-labelledby')).toBe(tab.id)
+      // The pane the tab names: a textarea for a code tab, the logged lines for Output.
+      expect(!!panel!.querySelector('textarea'), tab.id).toBe(tab.textContent!.trim() !== 'Output')
+      ids.add(tab.id).add(panel!.id)
+    }
+    expect(ids.size).toBe(12)
   })
 })

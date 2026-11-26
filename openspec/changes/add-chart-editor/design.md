@@ -74,7 +74,12 @@ Its P8 is checked on a bar sample, a time-scale sample, the HTML legend sample a
 
 Console lines keep accumulating across evaluations, last 50, as in zoom (D20).
 
-Carried over from zoom unchanged, and the user's to change: a sample that exports `output` opens on its Output tab, on mount and on a new `code` prop, and one without opens on its first tab. When an edit adds or removes the Output tab, the tab shown and the reader's edits stay; only a shown Output tab that goes away gives way to the first tab. Unlike zoom, the action buttons are not rendered for a sample without actions, whose empty row would push the editor down, and an action does nothing while there is no chart. The error tooltip's id comes from Vue's `useId()`, so two failing samples on a page each describe their own.
+The editor's tabs and indicators:
+- Carried over from zoom: a sample that exports `output` opens on its Output tab, on mount and on a new `code` prop, and one without opens on its first tab.
+- New here, chosen while building P8 and not yet confirmed by the user, whose to change it is: when an edit adds or removes the Output tab, the tab shown and the reader's edits stay, and only a shown Output tab that goes away gives way to the first tab. Zoom parsed the code again on an `output` change and reset the tab shown, losing the edits.
+- While an edit waits to be evaluated, the busy indicator takes the error indicator's place; the error indicator is back once the edit has been evaluated and still fails, as in zoom.
+- Unlike zoom, the action buttons are not rendered for a sample without actions or with an empty list, whose empty row would push the editor down, and an action does nothing while there is no chart.
+- Each tab is linked to its pane (`aria-controls`, and `role="tabpanel"` with `aria-labelledby` on the pane), which zoom did not do. These ids and the error tooltip's come from Vue's `useId()`, so they are unique across the editors on a page.
 
 *Alternative:* port zoom's code unchanged, which ships the fence bug and the hidden Chart.js errors.
 

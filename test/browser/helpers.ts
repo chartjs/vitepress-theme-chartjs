@@ -1,7 +1,7 @@
 // What the component tests share: page fixtures, mounting with Vue's warnings and errors collected, and samples.
 import { Chart, registerables, type ChartConfiguration } from 'chart.js'
-import { createApp, h, ref, type App, type Component } from 'vue'
-import { afterEach, vi } from 'vitest'
+import { createApp, h, nextTick, ref, type App, type Component } from 'vue'
+import { afterEach, expect, vi } from 'vitest'
 import { ChartEditor, chartEditorPlugin } from '../../src/index.js'
 import { LiveEditor } from '../../src/runtime/index.js'
 import type { ChartAction, ChartEditorOptions } from '../../src/types.js'
@@ -77,6 +77,39 @@ export async function chartIn(root: Element): Promise<Chart> {
 /** The id of the chart on `canvas`: a recreated chart has another. A failing assertion prints it, not the chart. */
 export function chartId(canvas: HTMLCanvasElement): string | undefined {
   return Chart.getChart(canvas)?.id
+}
+
+/** The editor's tabs, found by their roles as assistive technology finds them. */
+export function tabsIn(root: Element): HTMLButtonElement[] {
+  return [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"] [role="tab"]')]
+}
+
+/** The colour of each tab's underline: the shown one has it, the others are transparent. */
+export function underlines(root: Element): string[] {
+  return tabsIn(root).map((tab) => getComputedStyle(tab).borderBottomColor)
+}
+
+/** The underline of the shown tab, in the fallback colour, and of the others. */
+export const underlined = 'rgb(48, 128, 208)'
+export const plain = 'rgba(0, 0, 0, 0)'
+
+/** The one textarea shown. */
+export function shownTextarea(root: Element): HTMLTextAreaElement {
+  const shown = [...root.querySelectorAll('textarea')].filter((textarea) => textarea.checkVisibility())
+  expect(shown).toHaveLength(1)
+  return shown[0]
+}
+
+/** Types `value` as the reader would, in one input event. */
+export function type(textarea: HTMLTextAreaElement, value: string) {
+  textarea.value = value
+  textarea.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+/** Lets `ms` pass on the faked timers, then lets Vue render what they changed. */
+export async function wait(ms: number) {
+  vi.advanceTimersByTime(ms)
+  await nextTick()
 }
 
 /** A bar sample, without animation. */

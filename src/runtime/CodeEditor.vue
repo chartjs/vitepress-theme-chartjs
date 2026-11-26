@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useData } from 'vitepress'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import type { ChartjsThemeConfig } from '../types.js'
 import { joinBlocks, parseBlocks, type Block, type ParsedBlocks, type Tab } from './blocks.js'
+import ChartTooltip from './ChartTooltip.vue'
 import CodeOutput from './CodeOutput.vue'
 import CodeTextarea from './CodeTextarea.vue'
 import { debounce } from './debounce.js'
 import { sourceLink } from './source-link.js'
-import ChartTooltip from './ChartTooltip.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +38,13 @@ let blocks: Block[] = []
 const current = ref(0)
 // An edit waits to be evaluated.
 const busy = ref(false)
+
+// The tabs' names: the code's, then Output when the sample exports `output`.
+const names = computed(() => [...tabs.value.map((tab) => tab.name), ...(props.output ? ['Output'] : [])])
+// Each tab controls the pane of the same index, which it labels; unique within the app, so across editors on a page.
+const id = useId()
+const tabId = (index: number) => `${id}-tab-${index}`
+const panelId = (index: number) => `${id}-panel-${index}`
 
 /**
  * The tabs of `code`. Code that does not parse is shown whole, in one tab, so that the reader can fix it; evaluating it
@@ -101,8 +108,10 @@ onBeforeUnmount(cancel)
     <div class="code-editor-header">
       <div class="code-editor-tabs" role="tablist">
         <button
-          v-for="(tab, index) in tabs"
+          v-for="(name, index) in names"
+          :id="tabId(index)"
           :key="index"
+          :aria-controls="panelId(index)"
           :aria-selected="current === index"
           :class="{ active: current === index }"
           class="code-editor-tab"
@@ -110,18 +119,7 @@ onBeforeUnmount(cancel)
           type="button"
           @click="current = index"
         >
-          {{ tab.name }}
-        </button>
-        <button
-          v-if="output"
-          :aria-selected="current === tabs.length"
-          :class="{ active: current === tabs.length }"
-          class="code-editor-tab"
-          role="tab"
-          type="button"
-          @click="current = tabs.length"
-        >
-          Output
+          {{ name }}
         </button>
       </div>
 
@@ -169,12 +167,23 @@ onBeforeUnmount(cancel)
     <div class="code-editor-views">
       <CodeTextarea
         v-for="(tab, index) in tabs"
+        :id="panelId(index)"
         :key="index"
+        :aria-labelledby="tabId(index)"
         :hidden="current !== index"
         :value="tab.code"
+        role="tabpanel"
         @input="onInput(tab, $event)"
       />
-      <CodeOutput v-if="output" :hidden="current !== tabs.length" :lines="messages" :placeholder="output" />
+      <CodeOutput
+        v-if="output"
+        :id="panelId(tabs.length)"
+        :aria-labelledby="tabId(tabs.length)"
+        :hidden="current !== tabs.length"
+        :lines="messages"
+        :placeholder="output"
+        role="tabpanel"
+      />
     </div>
   </div>
 </template>
