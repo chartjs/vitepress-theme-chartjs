@@ -11,6 +11,8 @@ export default tseslint.config(
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
+    // Prettier lays out the templates, and keeps attributes that fit on one line together.
+    rules: { 'vue/max-attributes-per-line': 'off' },
   },
   {
     files: ['src/**'],

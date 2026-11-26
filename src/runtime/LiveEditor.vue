@@ -2,6 +2,7 @@
 import { Chart, type ChartConfiguration } from 'chart.js'
 import { markRaw, shallowRef, watch } from 'vue'
 import type { ChartAction } from '../types.js'
+import { asError } from './as-error.js'
 import ChartView from './ChartView.vue'
 import { evaluate } from './evaluate.js'
 
@@ -11,6 +12,8 @@ const props = defineProps<{
   imports: Record<string, unknown>
 }>()
 
+// The config of the last evaluation that succeeded. It is not necessarily what is drawn: when Chart.js rejects it, the
+// chart keeps the previous one and `error` says why.
 const config = shallowRef<ChartConfiguration>()
 const actions = shallowRef<ChartAction[]>()
 const error = shallowRef<Error>()
@@ -34,11 +37,16 @@ function run(code: string) {
       actions.value = result.actions
       actionsRead = true
     }
-    // Not reactive and not frozen: Chart.js takes over the object and mutates it.
+    // Not reactive and not frozen: Chart.js takes over the config's `data` and `options` and mutates them.
     config.value = result.config && markRaw(result.config)
   } catch (e) {
-    error.value = e instanceof Error ? e : new Error(String(e))
+    error.value = asError(e)
   }
+}
+
+/** Chart.js rejected the config; the chart keeps the previous one. */
+function onChartError(e: Error) {
+  error.value = e
 }
 
 watch(() => props.code, run, { immediate: true })
@@ -48,7 +56,7 @@ defineExpose({ config, actions, error, output, messages })
 
 <template>
   <div class="chart-editor">
-    <ChartView :config="config" />
+    <ChartView :config="config" @error="onChartError" />
     <pre class="chart-editor-code"><code>{{ code }}</code></pre>
   </div>
 </template>

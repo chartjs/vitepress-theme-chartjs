@@ -27,7 +27,7 @@ The installer SHALL register the component globally under the name `ChartEditor`
 
 #### Scenario: Installing without options
 - **WHEN** a theme calls `app.use(chartEditorPlugin)` with no options
-- **THEN** samples that use only `Chart` and `console` run and draw their charts
+- **THEN** samples that use only `Chart` and `console` run, and draw their charts with what the site has registered on Chart.js
 
 #### Scenario: Styling
 - **WHEN** the site imports `vitepress-theme-chartjs/style.css`
