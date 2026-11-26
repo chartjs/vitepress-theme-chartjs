@@ -138,9 +138,13 @@
   - typing does not evaluate before 500 ms and updates the same chart after 500 ms;
   - a new `code` prop replaces pending edits and is evaluated at once, and unmount drops a pending evaluation;
   - markup in the code, such as `<img onerror>` or `</code><script>` in a string, shows as text and creates no element;
-  - Tab inserts two spaces and focus stays.
+  - what is typed is highlighted at once, before it is evaluated;
+  - Tab inserts two spaces at the caret or over a selection, focus stays, and undo takes the spaces back;
+  - Shift+Tab inserts nothing and moves the focus backwards out of the textarea;
+  - the editor shows a focus ring while the textarea has the focus;
+  - the textarea lines up with the highlighted layer (position, font, `white-space: pre`, `tab-size: 2`, no resizing), and a long line is reached by scrolling.
 
-  These fail until the textarea exists. Write `test/browser/prism-isolation.test.ts`, which imports the built runtime chunk from `dist` into a page that has `<div class="language-js"><pre><code><span class="x">a</span></code></pre></div>`, and asserts the markup is unchanged one animation frame later. It passes until Prism is in the chunk, so it is proven by mutation, each on a fresh build: the flags import removed, the flags imported after the core, and the full `prismjs` bundle.
+  These fail until the textarea exists. Write `test/browser/prism-isolation.test.ts`, which imports the built runtime chunk from `dist` into a page that has `<div class="language-js"><pre><code><span class="x">a</span></code></pre></div>`, and asserts the markup is unchanged one animation frame later and no `Prism` global is left. It passes until Prism is in the chunk, so it is proven by mutation, each on a fresh build: the flags import removed, the flags imported after the core, and the full `prismjs` bundle. Write `test/browser/prism-site.test.ts`: a site's own `Prism` global is the same, untouched object after the chunk loads, and the editor still highlights. Extend `test/dist.test.ts` (Prism's license notice in `runtime.js`) and `test/shell.test.ts` (no `Prism` global in Node after loading the chunk).
 - [x] 6.2 Write `src/runtime/prism-flags.ts`, which sets `globalThis.Prism = { manual: true, disableWorkerMessageHandler: true }`. Write `src/runtime/prism.ts`, which imports `./prism-flags` first, then Prism's core, clike and javascript grammars, and last `./prism-restore`, which gives the page its own `Prism` global back (or removes it).
 - [x] 6.3 Port `CodeTextarea.vue` (zoom's, using `prism.ts`) with its styles and the token colours. Wire one textarea holding the whole code into `LiveEditor.vue`, re-evaluating through the P3 debounce.
 
