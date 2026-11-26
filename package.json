@@ -38,7 +38,7 @@
   "peerDependencies": {
     "chart.js": "^4.0.0",
     "vitepress": "^1.6.0",
-    "vue": "^3.5.0"
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

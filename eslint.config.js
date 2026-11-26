@@ -4,7 +4,17 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', '**/.vitepress/cache', '**/.vitepress/dist', '**/.vitepress/.temp'] },
+  {
+    ignores: [
+      'dist',
+      'node_modules',
+      '**/.vitepress/cache',
+      '**/.vitepress/dist',
+      '**/.vitepress/.temp',
+      // The example site's Chart.js build, which test/site.test.ts writes.
+      'test/site/vendor',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],

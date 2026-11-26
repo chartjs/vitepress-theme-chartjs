@@ -7,5 +7,7 @@ export default defineConfig({
     name: 'site',
     environment: 'node',
     include: ['test/site.test.ts'],
+    // Each test drives pages of a running site in Chromium; a dev server compiles a page on its first request.
+    testTimeout: 60_000,
   },
 })

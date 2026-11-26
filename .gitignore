@@ -3,5 +3,7 @@ node_modules
 **/.vitepress/cache
 **/.vitepress/dist
 **/.vitepress/.temp
+# The example site's own Chart.js build, which test/site.test.ts bundles from the site's installed chart.js.
+test/site/vendor
 # Screenshots of failed browser tests.
 .vitest
