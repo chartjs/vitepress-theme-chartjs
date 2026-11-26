@@ -188,7 +188,7 @@
 
   It fails.
 - [x] 9.2 Extend `test/site/`:
-  - `.vitepress/config.ts`: a `chart.js` alias to a local `.js` module re-exporting the installed `dist/chart.js` (chart.js exports no `./dist/*`), `optimizeDeps.exclude: ['vitepress-theme-chartjs', 'chartjs-adapter-luxon']`, and `themeConfig.source`;
+  - `.vitepress/config.ts`: `chart.js` aliased to `test/site/vendor/chart.js`, a bundle that the site test builds with Vite from `.vitepress/chart-build.js` and the installed chart.js before it builds the site, and which sets the `Chart.siteBuild` marker; `test/site/vendor` is in `.gitignore` and in `eslint.config.js`'s ignores. Also `optimizeDeps.exclude: ['vitepress-theme-chartjs', 'chartjs-adapter-luxon']`, and `themeConfig.source`;
   - `.vitepress/chart-imports.ts`: registers `registerables`, the date adapter (through a one-line `adapter.js`, so that `pnpm typecheck`, which runs before the site is installed, needs no adapter declarations) and a plugin reporting each render onto the sample's editor;
   - the theme: `imports` loading `{Utils}` (with `Utils.Chart`) and registering a date adapter, plus the stylesheet. `pnpm typecheck` checks the site's theme against the sources through `paths` in the root `tsconfig.json`, which has no entry for `vitepress-theme-chartjs/style.css` yet: map it to `./src/style.ts`, or the import fails with TS2882;
   - pages: time scale, HTML legend, progress bar, hidden panels (`display: none`, `hidden`, `<details>`) and verbatim characters.
