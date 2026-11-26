@@ -14,7 +14,8 @@ export default defineConfig({
     rolldownOptions: {
       external: ['vue', 'vitepress', 'chart.js'],
       // Stable names: the lazily loaded runtime chunk is dist/runtime.js, not runtime-<hash>.js.
-      output: { chunkFileNames: '[name].js' },
+      // The minifier drops comments, the bundled code's license notices among them, unless told to keep those (D6).
+      output: { chunkFileNames: '[name].js', comments: { legal: true } },
     },
   },
 })

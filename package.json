@@ -20,7 +20,8 @@
     "dist"
   ],
   "sideEffects": [
-    "*.css"
+    "*.css",
+    "./src/runtime/prism-flags.ts"
   ],
   "scripts": {
     "build": "vite build && vue-tsc -p tsconfig.build.json",

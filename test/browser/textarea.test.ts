@@ -36,6 +36,16 @@ describe('the code textarea', () => {
     expect(root.querySelector('.token.keyword')?.textContent).toBe('const')
   })
 
+  it('shows markup in the code as text', async () => {
+    const code = `const a = '<img src=x onerror="window.injected = true">'\nconst b = '</code></pre><script>window.injected = true</script>'`
+    const root = fixture()
+    mountLive(root, code)
+    const layer = root.querySelector('pre')!
+    expect(layer.textContent).toBe(`${code}\n`)
+    expect(layer.querySelectorAll(':not(span)')).toHaveLength(1)
+    expect(layer.querySelector('img, script')).toBeNull()
+  })
+
   it('evaluates an edit 500 ms after the last keystroke, on the same chart', async () => {
     const root = fixture()
     const { editor } = mountLive(root, bar([1, 2, 3]))
