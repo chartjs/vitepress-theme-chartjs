@@ -176,6 +176,11 @@ describe('the code textarea', () => {
     const layer = layerIn(root)
     const editor = root.querySelector<HTMLElement>('.code-textarea')!
 
+    // Code is shown as written, pasted tabs at two columns, and the reader cannot resize the textarea out of step.
+    expect(getComputedStyle(layer).whiteSpace).toBe('pre')
+    expect(getComputedStyle(layer).tabSize).toBe('2')
+    expect(getComputedStyle(textarea).resize).toBe('none')
+
     const box = (element: Element) => element.getBoundingClientRect()
     expect(box(textarea).left).toBe(box(layer).left)
     expect(box(textarea).top).toBe(box(layer).top)
