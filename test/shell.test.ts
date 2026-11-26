@@ -138,6 +138,13 @@ describe('the shell after mount', () => {
 })
 
 describe('LiveEditor', () => {
+  // Prism's core also writes `global.Prism` in Node; the chunk takes it back.
+  it('leaves no Prism global behind in Node', async () => {
+    expect('Prism' in globalThis).toBe(false)
+    await import(new URL('../dist/runtime.js', import.meta.url).href)
+    expect('Prism' in globalThis).toBe(false)
+  })
+
   it('reads the actions from the first evaluation that succeeds', async () => {
     const { LiveEditor } = (await import(
       new URL('../dist/runtime.js', import.meta.url).href

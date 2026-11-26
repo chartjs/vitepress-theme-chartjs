@@ -1,10 +1,23 @@
 import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+
+// The runtime chunk's modules that are imported only for their side effects. package.json's `sideEffects`, which tells
+// consumers that only the CSS has any, also applies to this build and would let it drop them. Rolldown's
+// `treeshake.moduleSideEffects` does not override that field for the package's own files; a transform hook's result
+// does.
+const sideEffectModules = /[\\/]src[\\/]runtime[\\/]prism-(?:flags|restore)\.ts$/
+
+const keepSideEffects: Plugin = {
+  name: 'keep-side-effects',
+  transform(code, id) {
+    return sideEffectModules.test(id) ? { code, moduleSideEffects: true } : undefined
+  },
+}
 
 // Library build: ES only, the peers left external, and every SFC style extracted into dist/style.css,
 // so that the JavaScript imports no CSS. The type declarations come from vue-tsc (tsconfig.build.json).
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), keepSideEffects],
   build: {
     lib: {
       entry: { index: 'src/index.ts', markdown: 'src/markdown.ts' },

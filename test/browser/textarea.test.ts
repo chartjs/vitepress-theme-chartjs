@@ -2,7 +2,7 @@
 // highlighting.
 import { nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { server, userEvent } from 'vitest/browser'
 import { bar, chartId, chartIn, fixture, mountLive } from './helpers.js'
 
 afterEach(() => {
@@ -13,6 +13,11 @@ function textareaIn(root: Element): HTMLTextAreaElement {
   const textarea = root.querySelector('textarea')
   expect(textarea).not.toBeNull()
   return textarea!
+}
+
+/** The highlighted layer under the textarea. */
+function layerIn(root: Element): HTMLElement {
+  return root.querySelector<HTMLElement>('pre.code-layer')!
 }
 
 /** Types `value` as the reader would, in one input event. */
@@ -96,16 +101,102 @@ describe('the code textarea', () => {
     expect(errors).toEqual([])
   })
 
-  it('inserts two spaces on Tab and keeps the focus', async () => {
+  it('highlights what is typed, before it is evaluated', async () => {
     const root = fixture()
-    mountLive(root, 'a\nb')
+    mountLive(root, 'a')
+    type(textareaIn(root), 'let b')
+    await nextTick()
+    expect(layerIn(root).textContent).toBe('let b\n')
+  })
+
+  it.each([
+    ['at the caret', 'a\nb', 2, 2, 'a\n  b'],
+    ['over a selection', 'abcd', 1, 3, 'a  d'],
+  ])('inserts two spaces on Tab %s and keeps the focus', async (_, code, start, end, expected) => {
+    const root = fixture()
+    mountLive(root, code)
     const textarea = textareaIn(root)
     textarea.focus()
-    textarea.setSelectionRange(2, 2)
+    textarea.setSelectionRange(start, end)
 
     await userEvent.keyboard('{Tab}')
-    expect(textarea.value).toBe('a\n  b')
-    expect(textarea.selectionStart).toBe(4)
+    expect(textarea.value).toBe(expected)
+    expect(textarea.selectionStart).toBe(start + 2)
+    expect(textarea.selectionEnd).toBe(start + 2)
     expect(document.activeElement).toBe(textarea)
+    await nextTick()
+    expect(layerIn(root).textContent).toBe(`${expected}\n`)
+  })
+
+  it('lets undo take back the spaces Tab inserted, and the typing before', async () => {
+    const root = fixture()
+    mountLive(root, '')
+    const textarea = textareaIn(root)
+    textarea.focus()
+    const undo = server.platform === 'darwin' ? '{Meta>}z{/Meta}' : '{Control>}z{/Control}'
+
+    await userEvent.keyboard('ab')
+    await userEvent.keyboard('{Tab}')
+    expect(textarea.value).toBe('ab  ')
+    await userEvent.keyboard(undo)
+    expect(textarea.value).toBe('ab')
+    await userEvent.keyboard(undo)
+    expect(textarea.value).not.toBe('ab')
+  })
+
+  it('lets Shift+Tab move the focus out, inserting nothing', async () => {
+    const page = fixture('<button>Before</button><div class="mount"></div>')
+    mountLive(page.querySelector('.mount')!, 'a')
+    const textarea = textareaIn(page)
+    textarea.focus()
+
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(textarea.value).toBe('a')
+    // Backwards out of the textarea: to the button, or in Firefox first to the scrolling editor, which it makes focusable.
+    expect(document.activeElement).not.toBe(textarea)
+    expect(textarea.compareDocumentPosition(document.activeElement!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+  })
+
+  it('shows where the keyboard focus is', async () => {
+    const root = fixture()
+    mountLive(root, 'a')
+    const editor = root.querySelector<HTMLElement>('.code-textarea')!
+    const outline = () => getComputedStyle(editor).outlineStyle
+
+    expect(outline()).toBe('none')
+    textareaIn(root).focus()
+    expect(outline()).toBe('solid')
+  })
+
+  it('lines the textarea up with the highlighted layer, and scrolls to a long line', async () => {
+    const code = [`const long = '${'x'.repeat(400)}'`, ...Array.from({ length: 40 }, (_, i) => `const n${i} = ${i}`)]
+    const root = fixture()
+    mountLive(root, code.join('\n'))
+    const textarea = textareaIn(root)
+    const layer = layerIn(root)
+    const editor = root.querySelector<HTMLElement>('.code-textarea')!
+
+    const box = (element: Element) => element.getBoundingClientRect()
+    expect(box(textarea).left).toBe(box(layer).left)
+    expect(box(textarea).top).toBe(box(layer).top)
+    for (const name of [
+      'font',
+      'letter-spacing',
+      'line-height',
+      'white-space',
+      'tab-size',
+      'padding',
+      'border-width',
+    ]) {
+      expect(getComputedStyle(textarea).getPropertyValue(name), name).toBe(
+        getComputedStyle(layer).getPropertyValue(name)
+      )
+    }
+    // The textarea is at least as large as the text, so it never scrolls on its own, out of step with the layer.
+    expect(textarea.clientWidth).toBeGreaterThanOrEqual(layer.scrollWidth)
+    expect(textarea.clientHeight).toBeGreaterThanOrEqual(layer.scrollHeight)
+    // The editor scrolls both together, to the end of the long line.
+    expect(editor.scrollWidth).toBeGreaterThan(editor.clientWidth)
+    expect(editor.scrollWidth).toBeGreaterThanOrEqual(layer.scrollWidth)
   })
 })

@@ -15,14 +15,13 @@ function onInput(event: Event) {
 }
 
 /**
- * Keeps Tab inside the editor instead of moving focus out of it. setRangeText is used rather than rewriting the whole
- * value so the browser's own undo stack stays intact.
+ * Keeps Tab inside the editor instead of moving focus out of it, and inserts two spaces over the selection. The
+ * deprecated `insertText` command is the one way to edit a textarea that the browser's undo takes back: after
+ * `setRangeText` or a new `value`, Ctrl+Z does nothing at all in Chromium and Firefox. It fires `input` itself.
  */
 function onTab(event: KeyboardEvent) {
-  const textarea = event.target as HTMLTextAreaElement
   event.preventDefault()
-  textarea.setRangeText('  ', textarea.selectionStart, textarea.selectionEnd, 'end')
-  emit('input', textarea.value)
+  document.execCommand('insertText', false, '  ')
 }
 </script>
 
@@ -40,7 +39,7 @@ function onTab(event: KeyboardEvent) {
         data-gramm="false"
         spellcheck="false"
         @input="onInput"
-        @keydown.tab="onTab"
+        @keydown.tab.exact="onTab"
       />
     </div>
   </div>
@@ -55,6 +54,12 @@ function onTab(event: KeyboardEvent) {
   line-height: 1.5;
   height: inherit;
   overflow: auto;
+}
+
+/* The textarea draws no outline of its own, so the editor shows where the keyboard focus is. */
+.code-textarea:focus-within {
+  outline: 2px solid var(--chartjs-focus-ring, #61afef);
+  outline-offset: -2px;
 }
 
 .code-textarea-content {

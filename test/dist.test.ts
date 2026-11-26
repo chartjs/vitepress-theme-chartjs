@@ -75,6 +75,11 @@ describe('dist', () => {
     }
   })
 
+  // Bundled code keeps its license notice (D6); the minifier drops it unless told to keep legal comments.
+  it("keeps Prism's license notice in the runtime chunk", () => {
+    expect(read('runtime.js')).toMatch(/Prism: Lightweight, robust, elegant syntax highlighting\s*\*\s*\* @license MIT/)
+  })
+
   it('has no network API outside license comments', () => {
     const files = [...distFiles('.js'), ...distFiles('.css')]
     expect(files.length).toBeGreaterThan(0)
