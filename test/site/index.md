@@ -14,9 +14,11 @@ const config = {
 module.exports = { config }
 ```
 
-The site's Chart.js and the one the samples get are the same: <span id="same-chart"></span>
+The samples get the site's own build of Chart.js: <span id="site-chart"></span>, the same one as the site's imports:
+<span id="same-chart"></span>
 
 ```js chart-editor
+document.getElementById('site-chart').textContent = String(Chart.siteBuild === true)
 document.getElementById('same-chart').textContent = String(Chart === Utils.Chart)
 
 const config = {

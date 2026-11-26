@@ -1,5 +1,6 @@
 // The site's imports, as Chart.js's docs have them: the site registers what its samples draw with, and the samples see
-// `Utils`. `chart.js` is the site's own (the alias in config.ts), so `Utils.Chart` is the Chart.js the site set up.
+// `Utils`. `chart.js` is the site's own build (the alias in config.ts), so `Utils.Chart` is the Chart.js the site set
+// up.
 import { Chart, registerables } from 'chart.js'
 import './adapter.js'
 

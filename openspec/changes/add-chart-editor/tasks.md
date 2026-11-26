@@ -196,7 +196,7 @@
   Add the site's dependencies (`chartjs-adapter-luxon` and `luxon`) to `test/site/package.json` and its own `pnpm-lock.yaml`, not to the root.
 
   Rename the template-ref bindings in `ChartView.vue` and `LiveEditor.vue` apart from their refs: Vue before 3.5.19 warns `Set operation on key "value" failed: target is readonly` on every mount otherwise.
-- [x] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.13` and `chart.js@4.0.1` (no 4.0.0 was published), and raise the Vue peer to `^3.5.13` (D6). The site's lockfile pins its current versions, so the job adds those three to the site, which installs it unfrozen, checks what was installed, and runs the site test itself, since `pnpm test:site` installs frozen.
+- [x] 9.3 Add the lowest-peers CI job (D20): build the example site against `vitepress@1.6.0`, `vue@3.5.13` and `chart.js@4.0.1` (no 4.0.0 was published), and raise the Vue peer to `^3.5.13` (D6). The site's lockfile pins its current versions, so the job adds those three to the site, which rewrites its `package.json` and lockfile in step, checks what was installed, and runs `pnpm test:site`, whose frozen install then installs them.
 
 ## 10. P10: Release, first-release procedure and README
 

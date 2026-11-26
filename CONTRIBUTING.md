@@ -27,8 +27,10 @@ While working on one test, `pnpm exec vitest run test/dist.test.ts` runs it alon
 CI installs Playwright's Chromium and Firefox, then runs `lint`, `typecheck`, `test`, `test:site` and `publint` on Ubuntu
 and Windows, and `actionlint` on Ubuntu. Its `lowest-peers` job, on Ubuntu, runs the example site's test on the lowest
 peers: `chart.js@4.0.1` (no 4.0.0 was published), `vitepress@1.6.0` and `vue@3.5.13`, the Vue that VitePress 1.6.0
-depends on. It adds them to the site with `pnpm --dir test/site add`, checks that they are what got installed, and runs
-`pnpm exec vitest run --config vitest.site.config.ts`, since `test:site` installs the site frozen.
+depends on. It adds them to the site with `pnpm --dir test/site add`, which rewrites the site's `package.json` and
+lockfile in the checkout, checks that they are what got installed, and runs `test:site`, whose frozen install then
+installs them. The Vue warning that Vue before 3.5.19 gives for a template ref bound under its own name shows only
+there.
 
 ### The browser tests
 
@@ -52,20 +54,23 @@ its members.) The root's `pnpm install` does not install it; `pnpm test:site` do
 with its own Vitest config, `vitest.site.config.ts`. A bare `vitest` uses `vitest.config.ts`, which leaves the site
 out, so it works without the site installed.
 
-The site is set up as Chart.js's docs are: `chart.js` is aliased to `.vitepress/chart.js`, a file of the site's own;
+The site is set up as Chart.js's docs are: `chart.js` is aliased to `vendor/chart.js`, the site's own build of it,
+which `test/site.test.ts` bundles with Vite from `.vitepress/chart-build.js` and the chart.js the site installed, before
+it builds the site (`vendor` is ignored by git; to run `vitepress dev` there by hand, run the site test once first).
+That build sets `Chart.siteBuild`, which the installed chart.js lacks, so a sample can tell that it got the site's copy.
 `themeConfig.source` gives the source links; the theme imports the stylesheet; and `optimizeDeps.exclude` lists the
-package and the date adapter, without which the dev server would bundle a second Chart.js into them. Its imports,
+package and the date adapter, without which the dev server would bundle another Chart.js into them. Its imports,
 `.vitepress/chart-imports.ts`, register Chart.js's components, the date adapter and a plugin that writes, on each
 render, what `test/site.test.ts` checks (`data-renders`, `data-chart-id`, `data-width`, `data-scale-x`, `data-values`)
-onto the sample's `.chart-editor`. The pages cover a bar and a line sample with `Chart === Utils.Chart`
-(`index.md`), and `samples/` a time scale, an HTML legend, a progress bar, samples in hidden panels and code with
-characters that HTML and Vue treat specially. The test runs every page on `vitepress preview` and on `vitepress dev`,
-and fails on any Vue warning or console error.
+onto the sample's `.chart-editor`. The pages cover a bar sample and a line sample that checks `Chart.siteBuild` and
+`Chart === Utils.Chart` (`index.md`), and `samples/` a time scale, an HTML legend, a progress bar, samples in hidden
+panels and code with characters that HTML and Vue treat specially. The test runs every page on `vitepress preview` and
+on `vitepress dev`, and fails on any Vue warning or console error; a sample that cannot draw fails with what the page
+showed and logged.
 
 `pnpm typecheck` checks the site's `.vitepress` files against the package's sources (through `paths` in
-`tsconfig.json`) and the root's VitePress, so it needs neither a build nor the site's install. Two of them are `.js`,
-so that it does not need the site's own packages either: `chart.js` names the installed Chart.js file, and `adapter.js`
-imports the date adapter.
+`tsconfig.json`) and the root's VitePress, so it needs neither a build nor the site's install. `chart-build.js` and
+`adapter.js` are `.js`, so that it does not need the site's own packages either.
 
 When you change the root's `peerDependencies` or other dependency ranges, the site's frozen install fails with
 `local dependency "vitepress-theme-chartjs" at "../.." is outdated`, and `test:site` says what to do: run

@@ -5,13 +5,16 @@
 //
 // The site's imports register a plugin on its Chart.js that writes, on each render, what a test needs onto the sample's
 // `.chart-editor`: `data-renders` (a count), `data-chart-id`, `data-width`, `data-scale-x` and `data-values` (the first
-// dataset's data). A sample whose chart is not the site's Chart.js gets none of them.
+// dataset's data). A sample whose chart is not the site's Chart.js gets none of them. That Chart.js is the site's own
+// build, which this file bundles into test/site/vendor before it builds the site.
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { createServer, type AddressInfo } from 'node:net'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
+import { build } from 'vite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const root = new URL('../', import.meta.url)
@@ -45,7 +48,24 @@ function samples(name: string): string[] {
   return [...markdown.matchAll(/^```js chart-editor\n([\s\S]*?)^```$/gm)].map((match) => match[1])
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  // The site's own Chart.js, which `chart.js` is aliased to: a bundle of the chart.js the site installed, with the
+  // marker `Chart.siteBuild`, outside node_modules, as Chart.js's docs alias `chart.js` to their own build.
+  await build({
+    configFile: false,
+    logLevel: 'warn',
+    root: fileURLToPath(site),
+    build: {
+      outDir: fileURLToPath(new URL('vendor/', site)),
+      emptyOutDir: true,
+      minify: false,
+      lib: {
+        entry: fileURLToPath(new URL('.vitepress/chart-build.js', site)),
+        formats: ['es'],
+        fileName: () => 'chart.js',
+      },
+    },
+  })
   // VitePress deletes .vitepress/.temp, the server bundle, after a build unless DEBUG is set. DEBUG=1 enables no
   // debug namespace, so the build stays quiet.
   execFileSync(process.execPath, [vitepress, 'build'], {
@@ -97,8 +117,13 @@ async function freePort(): Promise<number> {
   return port
 }
 
-/** Starts `vitepress <command>` on a free port, and resolves once the site answers there. */
-async function serve(command: 'preview' | 'dev'): Promise<{ origin: string; server: ChildProcess; output: string[] }> {
+/**
+ * Starts `vitepress <command>` on a free port, and resolves once this server says it listens there and answers. The
+ * port is free when probed, but could be taken before the child binds it; the dev server's `--strictPort` makes it
+ * exit then, and the preview has no such flag, so the child's own "served at" or "Local:" line naming the port, not
+ * only an answer on it, tells that it is this server. On any failure the child is stopped before the error is thrown.
+ */
+async function serve(command: 'preview' | 'dev'): Promise<{ origin: string; server: ChildProcess }> {
   const port = await freePort()
   // The preview listens on every address; the dev server is told which.
   const args =
@@ -111,15 +136,25 @@ async function serve(command: 'preview' | 'dev'): Promise<{ origin: string; serv
   server.stderr!.on('data', (chunk) => output.push(String(chunk)))
   const origin = `http://${host}:${port}`
   const deadline = Date.now() + 60_000
-  for (;;) {
-    if (server.exitCode !== null) throw new Error(`vitepress ${command} exited:\n${output.join('')}`)
-    try {
-      if ((await fetch(`${origin}/`)).ok) return { origin, server, output }
-    } catch {
-      // Not listening yet.
+  try {
+    for (;;) {
+      if (server.exitCode !== null) throw new Error(`vitepress ${command} exited:\n${output.join('')}`)
+      // Colours are on in CI and on Windows, and Vite's line has the port in bold.
+      if (stripVTControlCharacters(output.join('')).includes(`:${port}/`)) {
+        try {
+          if ((await fetch(`${origin}/`)).ok) return { origin, server }
+        } catch {
+          // Not answering yet.
+        }
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`vitepress ${command} (pid ${server.pid}) did not answer on ${port}:\n${output.join('')}`)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
-    if (Date.now() > deadline) throw new Error(`vitepress ${command} did not answer:\n${output.join('')}`)
-    await new Promise((resolve) => setTimeout(resolve, 250))
+  } catch (error) {
+    await stop(server)
+    throw error
   }
 }
 
@@ -148,6 +183,8 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
   const foreign: string[] = []
   const messages: string[] = []
   const errors: string[] = []
+  // The pages opened, which the console test checks were any.
+  let visited = 0
 
   beforeAll(async () => {
     ;({ origin, server } = await serve(command))
@@ -173,20 +210,37 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
     })
     page.on('pageerror', (error) => errors.push(`${name}: ${error.message}`))
     await page.goto(`${origin}/${name === 'index' ? '' : `${name}.html`}`)
+    visited++
     return page
   }
 
-  /** Waits until every sample on the page has drawn, and returns their `data-*` reports. */
-  async function drawn(page: Page, count: number): Promise<Record<string, string | undefined>[]> {
-    await page.waitForFunction(
-      (count) => {
-        const editors = [...document.querySelectorAll<HTMLElement>('.chart-editor')]
-        return editors.length === count && editors.every((editor) => editor.dataset.renders)
-      },
-      count,
-      { timeout: 30_000 }
-    )
-    return page.$$eval('.chart-editor', (editors) => editors.map((editor) => ({ ...(editor as HTMLElement).dataset })))
+  type Report = Record<string, string | undefined>
+
+  /**
+   * Waits until every sample on the page has drawn, and returns their `data-*` reports. A failed editor or an error
+   * indicator fails it at once, and a timeout says what was there; both with the page's console errors and warnings.
+   */
+  async function drawn(page: Page, count: number): Promise<Report[]> {
+    const deadline = Date.now() + 30_000
+    for (;;) {
+      const state = await page
+        .evaluate(() => ({
+          reports: [...document.querySelectorAll<HTMLElement>('.chart-editor')].map((editor) => ({
+            ...editor.dataset,
+          })),
+          failures: [...document.querySelectorAll('.chart-editor-failed, [role="tooltip"]')].map((element) =>
+            element.textContent!.trim()
+          ),
+        }))
+        // A cold dev server reloads the page once it has optimised its dependencies; the next round reads it again.
+        .catch(() => ({ reports: [], failures: [] }))
+      const why = () =>
+        `${page.url()}: ${JSON.stringify(state, null, 2)}\nconsole:\n${[...messages, ...errors].join('\n') || '(none)'}`
+      if (state.failures.length) throw new Error(`a sample failed on ${why()}`)
+      if (state.reports.length === count && state.reports.every((report) => report.renders)) return state.reports
+      if (Date.now() > deadline) throw new Error(`not every sample drew on ${why()}`)
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
   }
 
   it('draws every sample of every page, and links each to the page source', async () => {
@@ -206,9 +260,12 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
     }
   })
 
-  it("gives samples the site's own Chart.js", async () => {
+  // The site's own build has a marker that the installed chart.js lacks: without the alias, `Chart` has no marker; with
+  // the package getting another copy than the site's imports, `Chart !== Utils.Chart`.
+  it("gives samples the site's own build of Chart.js, the one its imports have", async () => {
     const page = await open('index')
     await drawn(page, samples('index').length)
+    expect(await page.textContent('#site-chart')).toBe('true')
     expect(await page.textContent('#same-chart')).toBe('true')
     await page.close()
   })
@@ -273,10 +330,20 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
       document.querySelector<HTMLElement>('#panel-hidden')!.hidden = false
       document.querySelector<HTMLDetailsElement>('#panel-details')!.open = true
     })
-    const reports = await drawn(page, 3)
-    const widths = await page.$$eval('.chart-editor .chart-view', (views) => views.map((view) => view.clientWidth))
-    expect(widths.every((width) => width > 0)).toBe(true)
-    expect(reports.map((report) => Number(report.width))).toEqual(widths)
+    await drawn(page, 3)
+    // A chart may have drawn before the panel was shown; wait for the redraw at its container's width.
+    const sized = () =>
+      page.$$eval('.chart-editor', (editors) =>
+        editors.map((editor) => ({
+          drawn: Number((editor as HTMLElement).dataset.width),
+          container: editor.querySelector('.chart-view')!.clientWidth,
+        }))
+      )
+    await expect
+      .poll(async () => (await sized()).every(({ drawn, container }) => container > 0 && drawn === container), {
+        timeout: 10_000,
+      })
+      .toBe(true)
     await page.close()
   })
 
@@ -309,8 +376,11 @@ describe.each(['preview', 'dev'] as const)('the site on vitepress %s', (command)
   })
 
   // After every page has been opened and used. A hydration mismatch, which only a server-rendered page can have (the
-  // preview; `vitepress dev` renders in the browser alone), is a console error too.
+  // preview; `vitepress dev` renders in the browser alone), is a console error too. Vue's production build compares
+  // the structure and the text of the server's HTML, not its attributes, so an attribute that differs passes.
   it('logs no Vue warning, console error or warning, and no uncaught error, on any page', () => {
+    // A run filtered to this test alone would have opened nothing.
+    expect(visited, 'pages opened before this test').toBeGreaterThan(0)
     expect(messages).toEqual([])
     expect(errors).toEqual([])
   })

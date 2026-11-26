@@ -52,8 +52,8 @@ jobs:
         uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
   # The example site on the lowest versions the peer ranges allow. Vue's floor is the one VitePress 1.6.0 depends on, and
-  # no 4.0.0 of Chart.js was published. `pnpm test:site` installs the site frozen, so this job installs and runs it
-  # itself.
+  # no 4.0.0 of Chart.js was published. Adding them rewrites the site's package.json and lockfile in the checkout only,
+  # in step with each other, so the frozen install of `pnpm test:site` then installs those versions.
   lowest-peers:
     runs-on: ubuntu-latest
 
@@ -71,10 +71,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Install Playwright's Chromium
         run: pnpm exec playwright install --with-deps chromium
-      - name: Build
-        run: pnpm run build
-      # Adding the versions rewrites the site's package.json and lockfile in the checkout only, and installs the package
-      # just built.
       - name: Install the example site with the lowest peers
         run: pnpm --dir test/site add chart.js@4.0.1 vitepress@1.6.0 vue@3.5.13
       # A site that silently kept its lockfile's versions would prove nothing.
@@ -91,5 +87,6 @@ jobs:
               if (found !== version) throw new Error(name + ' is ' + found + ', not ' + version)
             }
           "
+      # Builds the package, installs the site frozen from the lockfile just written, and runs its test.
       - name: Test example site
-        run: pnpm exec vitest run --config vitest.site.config.ts
+        run: pnpm run test:site
