@@ -26,7 +26,7 @@ function onTab(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="code-textarea">
+  <div class="code-textarea scrollable">
     <div class="code-textarea-content">
       <!-- eslint-disable-next-line vue/no-v-html -- Prism escapes the code; textarea.test.ts checks markup shows as text -->
       <pre aria-hidden="true" class="code-layer"><code v-html="highlighted" /></pre>

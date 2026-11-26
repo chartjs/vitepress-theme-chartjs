@@ -72,17 +72,19 @@ describe('dist/style.css', () => {
     const found = selectors(addStyle().cssRules)
     expect(found.length).toBeGreaterThan(0)
     for (const selector of found) {
-      expect(selector).toMatch(/\.chart-editor\b|\[data-v-[\w-]+\]/)
+      // The class itself, not one that only starts with it, such as .chart-editor-placeholder.
+      expect(selector).toMatch(/\.chart-editor(?![\w-])|\[data-v-[\w-]+\]/)
     }
   })
 
+  // At Chart.js's default aspect ratio for bar and line charts.
   it('reserves the height of the chart in the server placeholder', () => {
     const page = fixture(
-      '<div class="chart-editor chart-editor-placeholder" aria-busy="true"><div class="chart-view"></div></div>'
+      '<div style="width: 480px"><div class="chart-editor chart-editor-placeholder" aria-busy="true"><div class="chart-view"></div></div></div>'
     )
     const view = page.querySelector<HTMLElement>('.chart-view')!
     expect(view.clientHeight).toBe(0)
     addStyle()
-    expect(view.clientHeight).toBeGreaterThan(0)
+    expect(view.clientHeight).toBe(240)
   })
 })

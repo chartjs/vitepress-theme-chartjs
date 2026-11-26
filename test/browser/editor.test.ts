@@ -80,6 +80,24 @@ describe('the code editor', () => {
     await nextTick()
     expect(shownTextarea(root).value).toMatch(/^const config = \{/)
     expect(tabsIn(root).map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true'])
+    // Hidden by the attribute, which needs no stylesheet.
+    expect([...root.querySelectorAll('.code-textarea')].map((pane) => pane.hasAttribute('hidden'))).toEqual([
+      true,
+      false,
+    ])
+  })
+
+  it('shows the first tab of a new code prop', async () => {
+    const root = fixture()
+    const { code } = mountLive(root, blocks([1, 2, 3]))
+    await chartIn(root)
+    tabsIn(root)[1].click()
+    await nextTick()
+
+    code.value = bar([4, 5, 6])
+    await nextTick()
+    expect(tabsIn(root).map((tab) => tab.getAttribute('aria-selected'))).toEqual(['true'])
+    expect(shownTextarea(root).value).toBe(bar([4, 5, 6]))
   })
 
   it('shows one tab with the whole code when there are no blocks', async () => {
@@ -88,6 +106,20 @@ describe('the code editor', () => {
     await chartIn(root)
     expect(tabsIn(root).map((tab) => tab.textContent?.trim())).toEqual(['JS'])
     expect(shownTextarea(root).value).toBe(bar([1, 2, 3]))
+  })
+
+  it('gives the pane that scrolls the thin scrollbars', async () => {
+    const root = fixture()
+    mountLive(root, `const long = '${'x'.repeat(400)}'`)
+    const pane = root.querySelector<HTMLElement>('.code-textarea')!
+    expect(pane.scrollWidth).toBeGreaterThan(pane.clientWidth)
+    expect(getComputedStyle(pane).overflowX).toBe('auto')
+    // Read from the rules: Playwright's Firefox computes every scrollbar-width as none.
+    const thin = [...document.styleSheets]
+      .flatMap((sheet) => [...sheet.cssRules])
+      .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
+      .filter((rule) => rule.style.scrollbarWidth === 'thin')
+    expect(thin.some((rule) => pane.matches(rule.selectorText))).toBe(true)
   })
 
   it('shows code that does not parse in one tab, so the reader can fix it', async () => {
@@ -138,6 +170,19 @@ describe('the code editor', () => {
     await wait(1)
     expect(busyIn(root)).toBeNull()
     expect(chart.data.datasets[0].data).toEqual([7, 8, 9])
+  })
+
+  // Vue drops an unmounted component's events, so the timer is what shows a pending evaluation.
+  it('leaves no evaluation pending once unmounted', async () => {
+    const root = fixture()
+    const { unmount } = mountLive(root, bar([1, 2, 3]))
+    await chartIn(root)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+    type(shownTextarea(root), bar([4, 5, 6]))
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('replaces the tabs and the pending edit with a new code prop', async () => {
