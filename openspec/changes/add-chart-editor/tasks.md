@@ -200,15 +200,17 @@
 
 ## 10. P10: Release, first-release procedure and README
 
-- [ ] 10.1 Write `test/release-tag.test.ts` (Node). Create a temporary git repository with a `main` branch and run `node scripts/require-release-tag.mjs main`. Assert that it:
+- [x] 10.1 Write `test/release-tag.test.ts` (Node). Create a temporary git repository with a `main` branch and run `node scripts/require-release-tag.mjs main`. Assert that it:
   - fails with no tag;
   - passes with `v0.1.0` on a `main` commit;
-  - fails when the only `v*` tag is on a side-branch commit not merged into `main`.
+  - fails when the only `v*` tag is on a side-branch commit not merged into `main`;
+  - fails when the only tag on `main` is not a `v*` tag;
+  - fails with its usage when no ref is given.
 
   It fails: there is no script.
-- [ ] 10.2 Write `scripts/require-release-tag.mjs <ref>`: it exits 1, with a message pointing to MAINTAINING.md, when `git tag --merged <ref> --list 'v*'` is empty.
-- [ ] 10.3 Add `.releaserc.json`, copied from zoom: branch `main`, the `conventionalcommits` preset for the analyser and the notes, `@semantic-release/npm` with `tarballDir: "pack"`, `@semantic-release/github` with assets `pack/*.tgz`.
-- [ ] 10.4 Add `.github/workflows/release.yml`, copied from zoom's `release` job:
+- [x] 10.2 Write `scripts/require-release-tag.mjs <ref>`: it exits 1, with a message pointing to MAINTAINING.md, when `git tag --merged <ref> --list 'v*'` is empty.
+- [x] 10.3 Add `.releaserc.json`, copied from zoom: branch `main`, the `conventionalcommits` preset for the analyser and the notes, `@semantic-release/npm` with `tarballDir: "pack"`, `@semantic-release/github` with assets `pack/*.tgz`.
+- [x] 10.4 Add `.github/workflows/release.yml`, copied from zoom's `release` job:
   - `workflow_dispatch` with `dry-run`, `concurrency: release`;
   - runs only for `chartjs` on `refs/heads/main`;
   - `contents`, `issues` and `pull-requests: write`, `id-token: write`;
@@ -217,8 +219,8 @@
   - then `node scripts/require-release-tag.mjs origin/main`;
   - then `pnpm exec semantic-release` (with `--dry-run` when selected);
   - no docs job.
-- [ ] 10.5 Update `package.json`: remove `private`; add `prepack: pnpm run build`, `semantic-release ^25.0.9`, `conventional-changelog-conventionalcommits ^9.3.1`, `repository`, `homepage` and `keywords`. Add `/pack` to `.gitignore`. Add zoom's Dependabot ignore block to the npm entry of `.github/dependabot.yml`, for the semver-major updates of those two packages, with its comment; P1 leaves it out because the packages are not there yet.
-- [ ] 10.6 Write `MAINTAINING.md`, adapted from zoom:
+- [x] 10.5 Update `package.json`: remove `private`; add `prepack: pnpm run build`, `semantic-release ^25.0.9`, `conventional-changelog-conventionalcommits ^9.3.1`, `repository`, `homepage` and `keywords`. Add `/pack` to `.gitignore`. Add zoom's Dependabot ignore block to the npm entry of `.github/dependabot.yml`, for the semver-major updates of those two packages, with its comment; P1 leaves it out because the packages are not there yet. Give `scripts/**` Node's globals in `eslint.config.js`, since `pnpm lint` lints the guard.
+- [x] 10.6 Write `MAINTAINING.md`, adapted from zoom:
   - making a release;
   - what decides the version (`fix:` patch, `feat:` minor, `!` major);
   - what a release does;
@@ -229,7 +231,7 @@
     2. push the tag `v0.1.0` on that same commit and create the GitHub release `v0.1.0`;
     3. on npmjs.com, add the trusted publisher (GitHub Actions, `chartjs`, `vitepress-theme-chartjs`, `release.yml`, no environment) and the chartjs organisation as owner;
     4. from then on, run the `Release` workflow, which continues from `v0.1.0`.
-- [ ] 10.7 Write the README usage section: install, configuration, theme, stylesheet, sample format, block markers, the `optimizeDeps.exclude` note for sites that alias `chart.js`, and that the site must register on Chart.js what its samples use, since the package registers nothing (D21). Use the configuration P9 proved.
+- [x] 10.7 Write the README usage section: install, configuration, theme, stylesheet, sample format, block markers, the `optimizeDeps.exclude` note for sites that alias `chart.js`, and that the site must register on Chart.js what its samples use, since the package registers nothing (D21). Use the configuration P9 proved.
 - [ ] 10.8 After merge, maintainers:
   - change the repository settings in design D17;
   - carry out the first-release steps above;

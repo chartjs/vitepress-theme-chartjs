@@ -1,0 +1,68 @@
+name: Release
+
+# Started by hand: a release is a decision, not a side effect of every merge.
+# What is released is still derived from the commits on main since the last
+# tag. See MAINTAINING.md.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only report the version and notes the release would have
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Two runs at once would analyze the same last tag and race for the next
+# version, so they queue instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # Forks have no npm trusted publisher, and only main is a release branch.
+    if: github.repository_owner == 'chartjs' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      # semantic-release pushes the tag and creates the GitHub release,
+      # comments on the issues and pull requests a release closes, and
+      # publishes to npm through OIDC instead of a token.
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # semantic-release reads the tags and the commits since the last one.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Use Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox
+      # Builds dist/ and runs the unit, built-file, browser and type tests.
+      - name: Test
+        run: pnpm run test
+      - name: Test example site
+        run: pnpm run test:site
+      # npm trusted publishing needs npm >= 11.5.1; Node 26 ships it.
+      - run: npm --version
+      # With no v* tag reachable from main, semantic-release would release
+      # 1.0.0. The first release, 0.1.0, is published by hand.
+      - name: Require a release tag
+        run: node scripts/require-release-tag.mjs origin/main
+      # Writes the version into package.json, packs (prepack builds), tags,
+      # publishes and creates the GitHub release with the tarball.
+      - name: Release
+        run: pnpm exec semantic-release ${{ inputs.dry-run && '--dry-run' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

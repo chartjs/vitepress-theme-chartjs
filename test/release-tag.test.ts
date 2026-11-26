@@ -23,8 +23,8 @@ function commit(message: string): void {
   git('commit', '--allow-empty', '--quiet', '-m', message)
 }
 
-function guard(ref: string) {
-  return spawnSync(process.execPath, [script, ref], { cwd: repo, env, encoding: 'utf8' })
+function guard(...args: string[]) {
+  return spawnSync(process.execPath, [script, ...args], { cwd: repo, env, encoding: 'utf8' })
 }
 
 beforeEach(() => {
@@ -79,5 +79,13 @@ describe('require-release-tag', () => {
     git('tag', 'release-0.1.0')
     const result = guard('main')
     expect(result.status).toBe(1)
+    expect(result.stderr).toContain('MAINTAINING.md')
+  })
+
+  it('fails with its usage when no ref is given', () => {
+    git('tag', 'v0.1.0')
+    const result = guard()
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('Usage:')
   })
 })

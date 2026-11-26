@@ -103,4 +103,5 @@ When you change the root's `peerDependencies` or other dependency ranges, the si
 Pull requests are merged by squash, and the squash commit takes the pull request title. The title must therefore be a
 [Conventional Commits](https://www.conventionalcommits.org/) subject, such as `fix: keep the chart when an edit fails`;
 the `PR title` check enforces it. The type decides the next release: `fix:` releases a patch, `feat:` a minor version,
-and `!` after the type a major one; `chore:`, `docs:`, `test:` and `ci:` release nothing.
+and `!` after the type a major one; `chore:`, `docs:`, `test:` and `ci:` release nothing. Use a releasing type only when
+the published package changes. [MAINTAINING.md](MAINTAINING.md) describes how a release is made.
