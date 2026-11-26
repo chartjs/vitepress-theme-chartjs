@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Chart, type ChartConfiguration } from 'chart.js'
-import { markRaw, shallowRef, watch } from 'vue'
+import { markRaw, onBeforeUnmount, shallowRef, watch } from 'vue'
 import type { ChartAction } from '../types.js'
 import { asError } from './as-error.js'
 import ChartView from './ChartView.vue'
+import CodeTextarea from './CodeTextarea.vue'
+import { debounce } from './debounce.js'
 import { evaluate } from './evaluate.js'
 
 const props = defineProps<{
@@ -49,7 +51,28 @@ function onChartError(e: Error) {
   error.value = e
 }
 
-watch(() => props.code, run, { immediate: true })
+// The code as the reader edits it. An edit is evaluated 500 ms after the last keystroke; a new `code` prop replaces the
+// edits and is evaluated at once.
+const text = shallowRef(props.code)
+const runEdited = debounce(run, 500)
+
+function onInput(value: string) {
+  text.value = value
+  runEdited(value)
+}
+
+watch(
+  () => props.code,
+  (code) => {
+    runEdited.cancel()
+    text.value = code
+    run(code)
+  },
+  { immediate: true }
+)
+
+// Nothing runs after the page is left.
+onBeforeUnmount(runEdited.cancel)
 
 defineExpose({ config, actions, error, output, messages })
 </script>
@@ -57,6 +80,6 @@ defineExpose({ config, actions, error, output, messages })
 <template>
   <div class="chart-editor">
     <ChartView :config="config" @error="onChartError" />
-    <pre class="chart-editor-code"><code>{{ code }}</code></pre>
+    <CodeTextarea :value="text" @input="onInput" />
   </div>
 </template>
