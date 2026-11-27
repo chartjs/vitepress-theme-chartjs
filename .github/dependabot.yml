@@ -19,6 +19,14 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # semantic-release 25 generates notes with conventional-changelog-writer
+      # 8, which the 10.x preset does not work with, and semantic-release 26
+      # moves to that pair together. Update the two by hand.
+      - dependency-name: 'semantic-release'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'conventional-changelog-conventionalcommits'
+        update-types: ['version-update:semver-major']
   # The example site's own dependencies and lockfile (test/site is a workspace of its own).
   - package-ecosystem: 'npm'
     directory: '/test/site'

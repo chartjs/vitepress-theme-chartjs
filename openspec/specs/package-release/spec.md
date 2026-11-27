@@ -1,8 +1,11 @@
+# package-release Specification
+
 ## Purpose
 
-How a new version of the package reaches npm.
+How a new version of the package reaches npm: who starts a release, what decides its version, and how the first one is
+made.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Releases are started by hand
 
@@ -54,17 +57,20 @@ The next version SHALL be derived from the Conventional Commits subjects of the 
 
 ### Requirement: The first release is published by hand
 
-The first version, 0.1.0, SHALL be published by hand by a chartjs npm maintainer, and SHALL be tagged `v0.1.0` on the commit it was built from. The release workflow MUST refuse to run while no `v*` tag is reachable from `main`.
+The first version, 0.1.0, SHALL be published by hand by a chartjs npm maintainer, and SHALL be tagged `v0.1.0` on the commit it was built from. The release workflow MUST refuse to run while no version tag (`v<major>.<minor>.<patch>`) is reachable from `main`.
 
 #### Scenario: Before the first release
-- **WHEN** the release workflow is started and no `v*` tag exists
+- **WHEN** the release workflow is started and no version tag exists
 - **THEN** it fails before computing a version and publishes nothing
 
 #### Scenario: A tag off main
-- **WHEN** the only `v*` tag is on a commit that is not reachable from `main`
+- **WHEN** the only version tag is on a commit that is not reachable from `main`
+- **THEN** the workflow fails before computing a version and publishes nothing
+
+#### Scenario: A tag that is not a version
+- **WHEN** the only tags reachable from `main` are tags such as `vnext` or `v1-beta`
 - **THEN** the workflow fails before computing a version and publishes nothing
 
 #### Scenario: The first automated release
 - **WHEN** `v0.1.0` is on a commit of `main` and the workflow runs after a `fix:` commit
 - **THEN** it releases 0.1.1, not 1.0.0
-

@@ -1,5 +1,7 @@
 dist
 node_modules
+# The package tarball semantic-release packs and attaches to the GitHub release.
+/pack
 **/.vitepress/cache
 **/.vitepress/dist
 **/.vitepress/.temp
