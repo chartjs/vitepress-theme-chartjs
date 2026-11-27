@@ -5,11 +5,13 @@
  * variable has a fallback, so a site may set any of them and needs none.
  */
 
-/* The panes scroll with the browser's own scrollbars, thin and light on the dark code background. */
+/*
+ * The panes scroll with the browser's own scrollbars, thin and light on the dark code background. At a pane's end the
+ * wheel goes on to scroll the page, so a reader scrolling past an editor is not stopped by it.
+ */
 .chart-editor .scrollable {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
-  overscroll-behavior: contain;
 }
 
 /* For browsers without scrollbar-width and scrollbar-color, such as Safari before 18.2. */
